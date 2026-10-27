@@ -6,9 +6,9 @@ UE5 Blueprint 中英学习工具，支持艾宾浩斯复习、拆词/联想记�
 
 无需克隆仓库，直接下载发行版文件：
 
-- **安卓 APK**：[下载 Blueprint-Memory-Lab-v1.0.1.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.0.1/Blueprint-Memory-Lab-v1.0.1.apk)
-- **网页离线 ZIP**：[下载 Blueprint-Memory-Lab-Web-v1.0.0.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.0.1/Blueprint-Memory-Lab-Web-v1.0.0.zip)
-- **安装说明**：[下载 DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.0.1/DOWNLOAD-AND-INSTALL.txt)
+- **安卓 APK**：[下载 Blueprint-Memory-Lab-v1.0.2-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.0.2/Blueprint-Memory-Lab-v1.0.2-universal.apk)
+- **网页离线 ZIP**：[下载 Blueprint-Memory-Lab-Web-v1.0.1.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.0.2/Blueprint-Memory-Lab-Web-v1.0.1.zip)
+- **安装说明**：[下载 DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.0.2/DOWNLOAD-AND-INSTALL.txt)
 - **在线使用**：[打开 GitHub Pages 网页版](https://hyx3251591466.github.io/ue5-blueprint-memory-lab/)
 - **全部发行版**：[GitHub Releases](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases)
 
@@ -16,16 +16,16 @@ UE5 Blueprint 中英学习工具，支持艾宾浩斯复习、拆词/联想记�
 
 ## Android 安装
 
-1. 下载 `Blueprint-Memory-Lab-v1.0.1.apk`。
+1. 下载 `Blueprint-Memory-Lab-v1.0.2-universal.apk`。
 2. 点击 APK 安装；如果系统提示，允许浏览器或文件管理器“安装未知应用”。
-3. 支持 Android 8.0 及以上。
+3. 支持 Android 6.0 及以上。
 4. 词库、复习和联想记忆功能已打包在 APK 内，可离线使用。
 5. 有道词典发音需要网络；不可用时使用 Android 系统英文 TTS。
 6. 当前 APK 使用项目调试证书签名，适合直接侧载，不适合直接提交 Google Play。
 
 ## 网页离线 ZIP
 
-1. 下载并完整解压 `Blueprint-Memory-Lab-Web-v1.0.0.zip`。
+1. 下载并完整解压 `Blueprint-Memory-Lab-Web-v1.0.1.zip`。
 2. 保持所有文件在同一个文件夹。
 3. 双击 `index.html`，推荐使用最新版 Edge 或 Chrome。
 

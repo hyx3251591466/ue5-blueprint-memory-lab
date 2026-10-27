@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.0";
+  const APP_VERSION = "1.2.1";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const terms = DATA.terms;
   const termById = new Map(terms.map((term) => [term.id, term]));
@@ -114,7 +114,7 @@
     {
       kicker: "02 · 专注卡片",
       title: "一次只看一张卡",
-      body: "所有背诵动作都在独立页面完成。卡片、选项和当前进度集中显示，逻辑定位与未来复习留到会话结束后再看。",
+      body: "所有背诵动作都在独立页面完成。每个词至少再次出现一次，答错会更快回炉，形成会话内的小间隔重复。",
       note: "右上角显示本次进度，左侧退出会保留学习档案。",
       visual: `<div class="guide-mini-card"><small>FOCUS · 04 / 20</small><strong>Blueprint Class</strong><span>这个蓝图类最常用于什么场景？</span></div>`,
     },
@@ -217,6 +217,7 @@
   const floatingWordLookupCard = document.getElementById("floating-word-card");
   const detailStack = [];
   const sidebar = document.querySelector(".sidebar");
+  const sidebarBackdrop = document.getElementById("sidebar-backdrop");
   const mobileMenu = document.getElementById("mobile-menu");
   const themeToggle = document.getElementById("theme-toggle");
   let speechVoices = [];
@@ -507,6 +508,22 @@
     }
   }
 
+  function runRouteChange(commit, options = {}) {
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (options.animate === false || reduceMotion || typeof document.startViewTransition !== "function") {
+      commit();
+      return null;
+    }
+    try {
+      const transition = document.startViewTransition(commit);
+      transition.finished.catch(() => {});
+      return transition;
+    } catch {
+      commit();
+      return null;
+    }
+  }
+
   function syncAppearanceControls() {
     const currentPalette = APPEARANCE_PALETTES[state.settings.palette]
       ? state.settings.palette
@@ -599,8 +616,7 @@
 
   function openAppearanceDialog() {
     if (!appearanceDialog || appearanceDialog.open) return;
-    sidebar?.classList.remove("open");
-    mobileMenu?.setAttribute("aria-expanded", "false");
+    setSidebarOpen(false);
     syncAppearanceControls();
     appearanceDialog.showModal();
     syncModalScrollLock();
@@ -612,6 +628,23 @@
   function closeAppearanceDialog() {
     if (appearanceDialog?.open) appearanceDialog.close();
     syncModalScrollLock();
+  }
+
+  function setSidebarOpen(open, options = {}) {
+    const next = Boolean(open);
+    sidebar.classList.toggle("open", next);
+    mobileMenu?.setAttribute("aria-expanded", String(next));
+    document.documentElement.classList.toggle("sidebar-open", next);
+    document.body.classList.toggle("sidebar-open", next);
+    if (sidebarBackdrop) {
+      sidebarBackdrop.tabIndex = next ? 0 : -1;
+      sidebarBackdrop.setAttribute("aria-hidden", String(!next));
+    }
+    if (next) {
+      window.requestAnimationFrame(() => sidebar.querySelector("button, a")?.focus({ preventScroll: true }));
+    } else if (options.restoreFocus) {
+      mobileMenu?.focus({ preventScroll: true });
+    }
   }
 
   function syncModalScrollLock() {
@@ -667,8 +700,7 @@
 
   function openGuideDialog() {
     if (!guideDialog || guideDialog.open) return;
-    sidebar?.classList.remove("open");
-    mobileMenu?.setAttribute("aria-expanded", "false");
+    setSidebarOpen(false);
     syncGuideStep(ui.guide.step);
     guideDialog.showModal();
     syncModalScrollLock();
@@ -935,6 +967,8 @@
       focusActive: false,
       focusIds: [],
       focusPhase: "overview",
+      focusQuizQueue: [],
+      focusAttempts: {},
       focusStartedAt: null,
     };
   }
@@ -945,6 +979,10 @@
       state.session = makeSession();
     }
     if (!Array.isArray(state.session.focusIds)) state.session.focusIds = [];
+    if (!Array.isArray(state.session.focusQuizQueue)) state.session.focusQuizQueue = [];
+    if (!state.session.focusAttempts || typeof state.session.focusAttempts !== "object") {
+      state.session.focusAttempts = {};
+    }
     if (!Array.isArray(state.session.manualOverflowIds)) state.session.manualOverflowIds = [];
     if (typeof state.session.focusActive !== "boolean") state.session.focusActive = false;
     if (!["overview", "quiz"].includes(state.session.focusPhase)) state.session.focusPhase = "overview";
@@ -955,6 +993,17 @@
       return progress && !isProgressDue(progress);
     });
     const completed = new Set(state.session.completedIds);
+    if (state.session.focusActive && state.session.focusPhase === "quiz"
+      && !state.session.focusQuizQueue.length
+      && state.session.focusIds.some((id) => !completed.has(Number(id)))) {
+      const remaining = uniqueIds(state.session.focusIds).filter((id) => !completed.has(id));
+      state.session.focusQuizQueue = remaining.map((id) => ({ id, attempt: 1 }));
+      remaining.forEach((id) => {
+        if (!state.session.focusAttempts[id]) {
+          state.session.focusAttempts[id] = { total: 0, correct: 0, wrong: 0, finalized: false };
+        }
+      });
+    }
     const dueIds = terms
       .filter((term) => {
         const progress = currentTermState(term.id);
@@ -1064,6 +1113,8 @@
     state.session.focusActive = false;
     state.session.focusIds = [];
     state.session.focusPhase = "overview";
+    state.session.focusQuizQueue = [];
+    state.session.focusAttempts = {};
     state.session.focusStartedAt = null;
     ui.study = {
       phase: "setup",
@@ -1094,6 +1145,8 @@
     state.session.focusActive = true;
     state.session.focusIds = ids;
     state.session.focusPhase = "overview";
+    state.session.focusQuizQueue = [];
+    state.session.focusAttempts = {};
     state.session.focusStartedAt = new Date().toISOString();
     state.session.currentId = ids[0];
     lastAutoSpokenTermId = null;
@@ -1449,10 +1502,10 @@
     return result;
   }
 
-  function buildStudyQuestion(term) {
+  function buildStudyQuestion(term, attempt = 1) {
     const enabledModes = state.settings.studyModes.filter((mode) => mode !== "phrase" || term.phrase?.parts?.length);
     const modes = enabledModes.length ? enabledModes : ["meaning"];
-    const mode = modes[studyHash(`${term.id}-${term.en}`) % modes.length];
+    const mode = modes[studyHash(`${term.id}-${term.en}-${attempt}`) % modes.length];
     const pool = uniqueIds(state.session.focusIds || [])
       .filter((id) => id !== term.id)
       .map((id) => termById.get(id))
@@ -1482,9 +1535,10 @@
       distractors.push(value);
       if (distractors.length === 3) break;
     }
-    const options = deterministicShuffle([correctValue, ...distractors], `${term.id}-${mode}-options`);
+    const options = deterministicShuffle([correctValue, ...distractors], `${term.id}-${mode}-${attempt}-options`);
     return {
       mode,
+      attempt,
       prompt,
       helper,
       options,
@@ -1532,7 +1586,7 @@
           <div class="focus-pass-guide" aria-label="本轮背诵流程">
             <div><span>01</span><strong>基础通览</strong><small>本轮 ${plan.size} 个词逐个看释义与场景</small></div>
             <i aria-hidden="true">→</i>
-            <div><span>02</span><strong>混合练习</strong><small>再按所选组合统一出选择题</small></div>
+            <div><span>02</span><strong>间隔强化</strong><small>混合出题，每词至少重现 2 次</small></div>
           </div>
 
           <div class="focus-setup-block">
@@ -1613,6 +1667,7 @@
       <article class="focus-card focus-question-card">
         <div class="focus-card-meta">
           <span class="focus-badge">${STUDY_MODE_LABELS[question.mode]}</span>
+          <span class="focus-attempt">第 ${question.attempt || 1} 次出现</span>
           <span>${escapeHtml(term.category)}</span>
         </div>
         <p class="focus-kicker">${escapeHtml(question.prompt)}</p>
@@ -1640,7 +1695,7 @@
     return `
       <article class="focus-card focus-feedback-card ${feedback.correct ? "is-correct" : "is-wrong"}">
         <div class="focus-result-mark">${feedback.correct ? "✓" : "!"}</div>
-        <p class="focus-kicker">${feedback.correct ? "这次选对了" : "这次没有选对"}</p>
+        <p class="focus-kicker">${feedback.correct ? "这次选对了" : "这次没有选对"} · 第 ${feedback.attempt || 1} 次出现</p>
         <h2>${escapeHtml(term.en)}</h2>
         <div class="focus-result-answer">
           <span>你的选择</span>
@@ -1655,8 +1710,13 @@
           <summary>继续理解：拆词与避坑提示 <span>展开</span></summary>
           <div>${phraseMarkup(term)}<div class="focus-learn-tip"><span>避坑</span><p>${escapeHtml(term.tip)}</p></div></div>
         </details>
+        <div class="focus-repeat-cue ${feedback.finalized ? "is-complete" : ""}">
+          ${feedback.finalized
+            ? "本轮强化次数已完成，将按照最终评价安排下一次跨天复习。"
+            : `这个词会在约 ${feedback.nextGap} 张后再次出现，先让记忆沉淀一下。`}
+        </div>
         <div class="focus-next-row">
-          <button class="button button-primary focus-primary-action" type="button" data-action="study-next">继续下一张 →</button>
+          <button class="button button-primary focus-primary-action" type="button" data-action="study-next">${feedback.finalized ? "继续下一张 →" : "继续，稍后再见 →"}</button>
           <button class="button button-ghost" type="button" data-term-id="${term.id}">查看完整词条</button>
         </div>
       </article>
@@ -1666,6 +1726,8 @@
   function renderStudyComplete() {
     const ids = uniqueIds(state.session.focusIds || []);
     const ratings = state.session.ratings.filter((item) => ids.includes(item.termId));
+    const totalAttempts = Object.values(state.session.focusAttempts || {})
+      .reduce((sum, item) => sum + (Number(item.total) || 0), 0);
     const known = ratings.filter((item) => item.rating === "known").length;
     const needsReview = ratings.filter((item) => item.rating !== "known").length;
     return `
@@ -1674,9 +1736,9 @@
           <span class="focus-complete-check">✓</span>
           <span class="eyebrow">SESSION COMPLETE</span>
           <h2>这一轮完成了</h2>
-          <p>答错的词已经按遗忘曲线缩短间隔，系统会在合适的时间再次带回来。</p>
+          <p>本轮已按会话内间隔反复强化；答错的词出现得更早，最终结果再交给跨天遗忘曲线安排。</p>
           <div class="focus-complete-stats">
-            <div><strong>${ratings.length}</strong><span>本轮作答</span></div>
+            <div><strong>${totalAttempts}</strong><span>强化作答</span></div>
             <div><strong>${known}</strong><span>一次选对</span></div>
             <div><strong>${needsReview}</strong><span>需要回看</span></div>
           </div>
@@ -1715,32 +1777,34 @@
       scheduleAutoSpeak(overviewTerm);
       return;
     }
-    const queue = getFocusQueue();
-    if (!queue.length && ui.study.phase !== "feedback") {
+    const quizQueue = Array.isArray(state.session.focusQuizQueue) ? state.session.focusQuizQueue : [];
+    if (!quizQueue.length && ui.study.phase !== "feedback") {
       ui.study.phase = "complete";
       viewRoot.innerHTML = `<div class="view-enter">${renderStudyComplete()}</div>`;
       return;
     }
-    const term = termById.get(Number(state.session.currentId)) || termById.get(queue[0]);
+    const currentEntry = quizQueue[0] || null;
+    const termId = ui.study.phase === "feedback" ? state.session.currentId : (currentEntry?.id || state.session.currentId);
+    const term = termById.get(Number(termId));
     if (!term) {
       renderStudySetup();
       return;
     }
     state.session.currentId = term.id;
     if (ui.study.phase === "question") {
-      ui.study.question = buildStudyQuestion(term);
+      ui.study.question = buildStudyQuestion(term, currentEntry?.attempt || 1);
     }
     let card = "";
     if (ui.study.phase === "feedback" && ui.study.feedback && ui.study.question) {
       card = renderStudyFeedback(term, ui.study.question, ui.study.feedback);
     } else {
       ui.study.phase = "question";
-      ui.study.question = buildStudyQuestion(term);
+      ui.study.question = buildStudyQuestion(term, currentEntry?.attempt || 1);
       card = renderStudyQuestion(term, ui.study.question);
     }
     viewRoot.innerHTML = `
       <div class="focus-page view-enter">
-        ${renderFocusHeader(term, queue)}
+          ${renderFocusHeader(term, quizQueue)}
         <section class="focus-stage" aria-label="当前背诵卡片">${card}</section>
       </div>
     `;
@@ -1755,12 +1819,52 @@
     const selectedIndex = Number(index);
     if (!Number.isInteger(selectedIndex) || !ui.study.question.options[selectedIndex]) return;
     const correct = selectedIndex === ui.study.question.correctIndex;
-    rateCurrent(correct ? "known" : "forgot", {
-      advance: false,
-      render: false,
-      silent: true,
-    });
-    ui.study.feedback = { selectedIndex, correct };
+    const entry = state.session.focusQuizQueue.shift() || {
+      id: term.id,
+      attempt: ui.study.question.attempt || 1,
+    };
+    const previous = state.session.focusAttempts[String(term.id)] || { total: 0, correct: 0, wrong: 0, finalized: false };
+    const attemptRecord = {
+      ...previous,
+      total: (previous.total || 0) + 1,
+      correct: (previous.correct || 0) + (correct ? 1 : 0),
+      wrong: (previous.wrong || 0) + (correct ? 0 : 1),
+      finalized: false,
+    };
+    const final = attemptRecord.correct >= 2 || attemptRecord.total >= 4;
+    const finalRating = final
+      ? (attemptRecord.correct >= 2 ? (attemptRecord.wrong ? "vague" : "known") : "forgot")
+      : null;
+    let nextGap = 0;
+    if (final) {
+      attemptRecord.finalized = true;
+    } else {
+      nextGap = correct ? (attemptRecord.wrong ? 3 : 4) : 2;
+      const insertAt = Math.min(nextGap, state.session.focusQuizQueue.length);
+      state.session.focusQuizQueue.splice(insertAt, 0, {
+        id: term.id,
+        attempt: attemptRecord.total + 1,
+        reinforcement: true,
+      });
+    }
+    state.session.focusAttempts[String(term.id)] = attemptRecord;
+    if (final) {
+      rateCurrent(finalRating, {
+        advance: false,
+        render: false,
+        silent: true,
+      });
+    } else {
+      saveState();
+    }
+    ui.study.feedback = {
+      selectedIndex,
+      correct,
+      finalized: final,
+      attempt: attemptRecord.total,
+      nextGap,
+      finalRating,
+    };
     ui.study.phase = "feedback";
     saveState();
     renderStudy();
@@ -1780,8 +1884,14 @@
       return;
     }
     state.session.focusPhase = "quiz";
-    const queue = getFocusQueue();
-    state.session.currentId = queue[0] || ids[0] || null;
+    const completed = new Set(state.session.completedIds);
+    state.session.focusAttempts = Object.fromEntries(ids
+      .filter((id) => !completed.has(id))
+      .map((id) => [id, { total: 0, correct: 0, wrong: 0, finalized: false }]));
+    state.session.focusQuizQueue = ids
+      .filter((id) => !completed.has(id))
+      .map((id) => ({ id, attempt: 1 }));
+    state.session.currentId = state.session.focusQuizQueue[0]?.id || ids[0] || null;
     ui.study = {
       phase: "question",
       taughtId: null,
@@ -1795,15 +1905,16 @@
   }
 
   function advanceStudyQueue() {
-    const queue = getFocusQueue();
+    const queue = state.session.focusQuizQueue || [];
+    const next = queue[0] || null;
     ui.study = {
-      phase: queue.length ? "question" : "complete",
+      phase: next ? "question" : "complete",
       taughtId: null,
       feedback: null,
       question: null,
       selectedIndex: null,
     };
-    state.session.currentId = queue[0] || null;
+    state.session.currentId = next?.id || null;
     lastAutoSpokenTermId = null;
     saveState();
     renderStudy();
@@ -1813,6 +1924,8 @@
     state.session.focusActive = false;
     state.session.focusIds = [];
     state.session.focusPhase = "overview";
+    state.session.focusQuizQueue = [];
+    state.session.focusAttempts = {};
     state.session.focusStartedAt = null;
     ui.study.phase = "setup";
     saveState();
@@ -2388,20 +2501,20 @@
             <p>可搜英文、中文、节点位置和使用场景。每个词条都能继续展开前置知识、相关节点与真实逻辑链。</p>
           </div>
         </div>
-        <div class="toolbar">
-          <label class="search-field">
+        <div class="toolbar library-toolbar">
+          <label class="search-field library-search-field">
             <span class="sr-only">搜索词条</span>
             <input id="library-search" type="search" value="${escapeHtml(ui.library.query)}" placeholder="搜索 rotation、碰撞、UI、存档…">
           </label>
-          <label class="select-field">
-            <span class="sr-only">分类筛选</span>
+          <label class="select-field library-filter-field">
+            <span class="field-caption">分类筛选</span>
             <select id="library-category">
               <option value="all">全部分类</option>
               ${DATA.categories.map((category) => `<option value="${escapeHtml(category.name)}" ${ui.library.category === category.name ? "selected" : ""}>${escapeHtml(category.name)} · ${category.count}</option>`).join("")}
             </select>
           </label>
-          <label class="select-field">
-            <span class="sr-only">状态筛选</span>
+          <label class="select-field library-filter-field">
+            <span class="field-caption">状态筛选</span>
             <select id="library-status">
               <option value="all" ${ui.library.status === "all" ? "selected" : ""}>全部状态</option>
               <option value="new" ${ui.library.status === "new" ? "selected" : ""}>未学习</option>
@@ -3188,13 +3301,17 @@
   function navigate(route, options = {}) {
     if (!pageMeta[route]) route = "today";
     closeWordLookupCard(true);
-    ui.route = route;
-    ui.revealed = false;
-    if (location.hash !== `#${route}`) history.replaceState(null, "", `#${route}`);
-    render();
-    sidebar.classList.remove("open");
-    mobileMenu.setAttribute("aria-expanded", "false");
-    if (options.scroll !== false) resetPageScroll();
+    const previousRoute = ui.route;
+    const commit = () => {
+      ui.route = route;
+      ui.revealed = false;
+      if (location.hash !== `#${route}`) history.replaceState(null, "", `#${route}`);
+      render();
+      setSidebarOpen(false);
+      if (options.scroll !== false) resetPageScroll();
+    };
+    if (route !== previousRoute && options.animate !== false) runRouteChange(commit);
+    else commit();
   }
 
   function toast(message, options = {}) {
@@ -3869,13 +3986,15 @@
   });
 
   mobileMenu.addEventListener("click", () => {
-    const open = sidebar.classList.toggle("open");
-    mobileMenu.setAttribute("aria-expanded", String(open));
+    setSidebarOpen(!sidebar.classList.contains("open"));
   });
 
   document.getElementById("mobile-more")?.addEventListener("click", () => {
-    sidebar.classList.add("open");
-    mobileMenu.setAttribute("aria-expanded", "true");
+    setSidebarOpen(true);
+  });
+  sidebarBackdrop?.addEventListener("click", () => setSidebarOpen(false, { restoreFocus: true }));
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 860 && sidebar.classList.contains("open")) setSidebarOpen(false);
   });
 
   document.getElementById("open-settings").addEventListener("click", () => {
@@ -3896,13 +4015,20 @@
   window.addEventListener("hashchange", () => {
     const route = location.hash.replace("#", "");
     if (pageMeta[route] && route !== ui.route) {
-      ui.route = route;
-      render();
-      resetPageScroll();
+      runRouteChange(() => {
+        ui.route = route;
+        render();
+        resetPageScroll();
+      });
     }
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && sidebar.classList.contains("open")) {
+      event.preventDefault();
+      setSidebarOpen(false, { restoreFocus: true });
+      return;
+    }
     if (event.key === "Escape" && floatingWordLookupCard && !floatingWordLookupCard.hidden) {
       event.preventDefault();
       closeWordLookupCard();

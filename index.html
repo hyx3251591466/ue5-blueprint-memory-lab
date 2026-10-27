@@ -9,7 +9,7 @@
   <title>Blueprint Memory Lab · UE5 蓝图记忆舱</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg">
-  <link rel="stylesheet" href="styles.css?v=1.1.1">
+  <link rel="stylesheet" href="styles.css?v=1.2.2">
 </head>
 <body>
   <div class="app-shell">
@@ -68,6 +68,10 @@
       </div>
 
       <div class="sidebar-actions">
+        <button class="icon-button" id="open-guide" type="button">
+          <span class="guide-icon" aria-hidden="true">?</span>
+          <span>使用教程</span>
+        </button>
         <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="打开外观设置" aria-haspopup="dialog">
           <span class="theme-icon" aria-hidden="true"></span>
           <span id="theme-label">外观</span>
@@ -91,6 +95,10 @@
           </div>
         </div>
         <div class="topbar-metrics">
+          <button class="guide-button" id="guide-button" type="button" data-action="open-guide" aria-label="打开使用教程" aria-haspopup="dialog">
+            <span aria-hidden="true">?</span>
+            <b>教程</b>
+          </button>
           <button class="appearance-quick" id="appearance-quick" type="button" aria-label="打开外观设置" aria-haspopup="dialog">
             <span class="appearance-quick-glyph" aria-hidden="true"></span>
             <span>外观</span>
@@ -138,6 +146,25 @@
       <span>更多</span>
     </button>
   </nav>
+
+  <dialog class="guide-dialog" id="guide-dialog" aria-labelledby="guide-dialog-title">
+    <div class="guide-dialog-shell">
+      <header class="guide-dialog-head">
+        <div>
+          <span class="eyebrow">QUICK START · 60 秒</span>
+          <h2 id="guide-dialog-title">五步开始今天的背诵</h2>
+        </div>
+        <button class="dialog-close" id="guide-dialog-close" type="button" aria-label="关闭使用教程">×</button>
+      </header>
+      <div class="guide-progress" id="guide-progress" aria-hidden="true"></div>
+      <div id="guide-dialog-content"></div>
+      <footer class="guide-dialog-footer">
+        <button class="button button-ghost" type="button" data-guide-prev>上一步</button>
+        <div class="guide-dots" id="guide-dots" aria-label="教程步骤"></div>
+        <button class="button button-primary" type="button" data-guide-next>下一步</button>
+      </footer>
+    </div>
+  </dialog>
 
   <dialog class="appearance-dialog" id="appearance-dialog" aria-labelledby="appearance-dialog-title">
     <div class="appearance-dialog-shell">
@@ -201,12 +228,12 @@
         <section class="appearance-section" aria-labelledby="appearance-glass-heading">
           <div class="appearance-section-head">
             <div>
-              <h3 id="appearance-glass-heading">磨砂玻璃</h3>
-              <p>只作用于容器层，正文保持清晰。</p>
+              <h3 id="appearance-glass-heading">玻璃质感</h3>
+              <p>选择普通磨砂强度；液态玻璃在下方单独调节。</p>
             </div>
             <span>03</span>
           </div>
-          <div class="appearance-glass-grid" id="appearance-glass-options" role="group" aria-label="磨砂玻璃强度">
+          <div class="appearance-glass-grid" id="appearance-glass-options" role="group" aria-label="玻璃质感">
             <button type="button" data-appearance-glass="off"><i></i><span>关闭</span></button>
             <button type="button" data-appearance-glass="soft"><i></i><span>轻磨砂</span></button>
             <button type="button" data-appearance-glass="strong"><i></i><span>深磨砂</span></button>
@@ -215,12 +242,58 @@
         </section>
       </div>
 
+      <section class="appearance-section liquid-glass-section" id="liquid-glass-section" aria-labelledby="liquid-glass-heading">
+        <div class="appearance-section-head">
+          <div>
+            <h3 id="liquid-glass-heading">液态玻璃 · 独立控制</h3>
+            <p>与普通磨砂分开，可细调折射深度、高光流动和边缘折射。</p>
+          </div>
+          <span>04</span>
+        </div>
+        <div class="liquid-glass-console" id="liquid-glass-console">
+          <button class="liquid-glass-master" type="button" data-liquid-toggle aria-pressed="false">
+            <span class="liquid-glass-orb" aria-hidden="true"><i></i></span>
+            <span class="liquid-glass-copy">
+              <strong>启用液态玻璃</strong>
+              <small id="liquid-glass-summary">平衡折射 · 缓慢流动 · 柔和边缘</small>
+            </span>
+            <span class="liquid-glass-switch" aria-hidden="true"><i></i></span>
+          </button>
+          <div class="liquid-glass-options" id="liquid-glass-options">
+            <div class="liquid-glass-group">
+              <span class="liquid-glass-group-label">折射层次</span>
+              <div class="liquid-glass-segmented" role="group" aria-label="液态玻璃折射层次">
+                <button type="button" data-liquid-depth="clear" aria-pressed="false"><strong>1×</strong><span>清透</span></button>
+                <button type="button" data-liquid-depth="balanced" aria-pressed="false"><strong>2×</strong><span>平衡</span></button>
+                <button type="button" data-liquid-depth="deep" aria-pressed="false"><strong>3×</strong><span>深邃</span></button>
+              </div>
+            </div>
+            <div class="liquid-glass-group">
+              <span class="liquid-glass-group-label">高光流动</span>
+              <div class="liquid-glass-segmented" role="group" aria-label="液态玻璃高光流动">
+                <button type="button" data-liquid-flow="still" aria-pressed="false"><strong>—</strong><span>静止</span></button>
+                <button type="button" data-liquid-flow="gentle" aria-pressed="false"><strong>≈</strong><span>缓慢</span></button>
+                <button type="button" data-liquid-flow="lively" aria-pressed="false"><strong>≋</strong><span>活跃</span></button>
+              </div>
+            </div>
+            <div class="liquid-glass-group">
+              <span class="liquid-glass-group-label">边缘折射</span>
+              <div class="liquid-glass-segmented is-pair" role="group" aria-label="液态玻璃边缘折射">
+                <button type="button" data-liquid-gloss="soft" aria-pressed="false"><strong>○</strong><span>柔光</span></button>
+                <button type="button" data-liquid-gloss="bright" aria-pressed="false"><strong>✦</strong><span>晶亮</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="appearance-section appearance-custom-section" id="appearance-custom-row" aria-labelledby="appearance-custom-heading">
         <div class="appearance-section-head">
           <div>
             <h3 id="appearance-custom-heading">自定义强调色</h3>
             <p>适合想保留整套冷色结构、只换按钮与进度色的人。</p>
           </div>
+          <span>05</span>
           <div class="appearance-custom-controls">
             <label class="appearance-color-control" for="custom-sidebar">
               <span>侧边栏</span>
@@ -244,15 +317,41 @@
   </dialog>
 
   <dialog class="term-dialog" id="term-dialog" aria-labelledby="term-dialog-title">
-    <div class="term-dialog-shell">
-      <button class="dialog-close" id="term-dialog-close" type="button" aria-label="关闭词条详情">×</button>
-      <div id="term-dialog-content"></div>
+    <div class="term-dialog-layout">
+      <div class="term-dialog-shell">
+        <button class="dialog-close" id="term-dialog-close" type="button" aria-label="关闭词条详情">×</button>
+        <div id="term-dialog-content"></div>
+      </div>
+      <aside class="word-lookup-card" id="word-lookup-card" aria-live="polite" hidden></aside>
     </div>
   </dialog>
 
+  <dialog class="limit-add-dialog" id="limit-add-dialog" aria-labelledby="limit-add-title">
+    <div class="limit-add-shell">
+      <span class="eyebrow">TODAY LIST · LIMIT</span>
+      <h2 id="limit-add-title">今日词单已满</h2>
+      <p id="limit-add-copy">请选择本次新词的加入方式。</p>
+      <div class="limit-add-options">
+        <button class="limit-add-choice is-overflow" type="button" data-action="limit-add-over">
+          <span>本次超额加入</span>
+          <strong id="limit-add-over-count">多加入 1 个词</strong>
+          <small>仅本次任务超过预设上限，不改每日设置</small>
+        </button>
+        <button class="limit-add-choice is-replace" type="button" data-action="limit-add-replace">
+          <span>顶替最后一位</span>
+          <strong id="limit-add-replace-word">替换最后一个未完成词</strong>
+          <small>被替换的词顺延到明天</small>
+        </button>
+      </div>
+      <button class="limit-add-cancel" type="button" data-action="limit-add-cancel">先不加入</button>
+    </div>
+  </dialog>
+
+  <aside class="word-lookup-card is-floating" id="floating-word-card" aria-live="polite" hidden></aside>
+
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="data.js?v=1.1.1"></script>
-  <script src="app.js?v=1.1.1"></script>
+  <script src="data.js?v=1.2.2"></script>
+  <script src="app.js?v=1.2.2"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
   "name": "Blueprint Memory Lab",
   "short_name": "Blueprint",
-  "description": "UE5 Blueprint 中英词汇、拆词记忆、联想复习与场景串联",
+  "description": "UE5 Blueprint 中英词汇、专注背诵、艾宾浩斯复习、拆词记忆与场景串联",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

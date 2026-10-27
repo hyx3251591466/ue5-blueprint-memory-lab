@@ -37,6 +37,8 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
+  const APP_VERSION = "1.2.0";
+  const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const terms = DATA.terms;
   const termById = new Map(terms.map((term) => [term.id, term]));
   const categoryByName = new Map(DATA.categories.map((category) => [category.name, category]));
@@ -55,10 +57,44 @@
     custom: { name: "自定义", note: "自选侧栏与强调色", colorA: "#0c2437", colorB: "#2d6cdf", sidebarB: "#071725" },
   };
   const GLASS_MODES = new Set(["off", "soft", "strong"]);
-  const GLASS_LABELS = { off: "无磨砂玻璃", soft: "轻磨砂玻璃", strong: "深磨砂玻璃" };
+  const GLASS_LABELS = {
+    off: "无玻璃质感",
+    soft: "轻磨砂玻璃",
+    strong: "深磨砂玻璃",
+  };
+  const LIQUID_DEPTHS = new Set(["clear", "balanced", "deep"]);
+  const LIQUID_FLOWS = new Set(["still", "gentle", "lively"]);
+  const LIQUID_GLOSSES = new Set(["soft", "bright"]);
+  const LIQUID_LABELS = {
+    depth: { clear: "清透折射", balanced: "平衡折射", deep: "深邃折射" },
+    flow: { still: "静止高光", gentle: "缓慢流动", lively: "活跃流动" },
+    gloss: { soft: "柔和边缘", bright: "晶亮边缘" },
+  };
+
+  function normalizeLiquidSettings(settings) {
+    if (settings.glass === "liquid") {
+      settings.glass = "off";
+      settings.liquidGlass = true;
+    }
+    if (!GLASS_MODES.has(settings.glass)) settings.glass = "off";
+    settings.liquidGlass = settings.liquidGlass === true;
+    if (!LIQUID_DEPTHS.has(settings.liquidDepth)) settings.liquidDepth = "balanced";
+    if (!LIQUID_FLOWS.has(settings.liquidFlow)) settings.liquidFlow = "gentle";
+    if (!LIQUID_GLOSSES.has(settings.liquidGloss)) settings.liquidGloss = "soft";
+    return settings;
+  }
+
+  function liquidSummary(settings = state?.settings || defaultState.settings) {
+    return [
+      LIQUID_LABELS.depth[settings.liquidDepth] || LIQUID_LABELS.depth.balanced,
+      LIQUID_LABELS.flow[settings.liquidFlow] || LIQUID_LABELS.flow.gentle,
+      LIQUID_LABELS.gloss[settings.liquidGloss] || LIQUID_LABELS.gloss.soft,
+    ].join(" · ");
+  }
 
   const pageMeta = {
     today: { title: "今日学习", kicker: "TODAY" },
+    study: { title: "专注背诵", kicker: "FOCUS SESSION" },
     wordlist: { title: "今日词单", kicker: "TODAY LIST" },
     learned: { title: "已学与复习", kicker: "MEMORY LIBRARY" },
     library: { title: "词库检索", kicker: "LIBRARY" },
@@ -67,13 +103,58 @@
     memory: { title: "记忆路线", kicker: "MEMORY ROUTE" },
   };
 
+  const GUIDE_STEPS = [
+    {
+      kicker: "01 · 今日顺序",
+      title: "先清到期复习，再学新词",
+      body: "每天开始背诵时，系统会先把已经到期的旧词放到最前面；到期复习没有完成，不会先塞给你一批新词。",
+      note: "复习优先不是提醒文字，而是实际入队顺序。",
+      visual: `<div class="guide-mini-flow"><span>到期复习</span><i>→</i><span>新词</span><i>→</i><span>下次复习</span></div>`,
+    },
+    {
+      kicker: "02 · 专注卡片",
+      title: "一次只看一张卡",
+      body: "所有背诵动作都在独立页面完成。卡片、选项和当前进度集中显示，逻辑定位与未来复习留到会话结束后再看。",
+      note: "右上角显示本次进度，左侧退出会保留学习档案。",
+      visual: `<div class="guide-mini-card"><small>FOCUS · 04 / 20</small><strong>Blueprint Class</strong><span>这个蓝图类最常用于什么场景？</span></div>`,
+    },
+    {
+      kicker: "03 · 答题组合",
+      title: "换一种问法再回忆",
+      body: "可以同时勾选“英译中”“使用场景”“拆词组义”。同一张词卡会轮换不同问法，帮助你从意思、用途和构词三个方向建立连接。",
+      note: "至少保留一种答题方式；本次总量也可以随时选择。",
+      visual: `<div class="guide-mini-modes"><span>英译中</span><span>使用场景</span><span>拆词组义</span></div>`,
+    },
+    {
+      kicker: "04 · 遗忘曲线",
+      title: "每次评价都会改变下次时间",
+      body: "记住会进入下一阶段，模糊会缩短间隔，没记住会回到 5 分钟快速复习。新词开始时也会先插入到期的旧词。",
+      note: "5 分钟 → 30 分钟 → 12 小时 → 1/2/4/7/15/30 天。",
+      visual: `<div class="guide-mini-curve"><i style="--h:28%"></i><i style="--h:42%"></i><i style="--h:58%"></i><i style="--h:72%"></i><i style="--h:88%"></i></div>`,
+    },
+    {
+      kicker: "05 · 跨设备",
+      title: "用 JSON 带走完整学习档案",
+      body: "在“记忆路线”里导出学习进度，再到手机或另一台设备导入，即可恢复复习阶段、到期日期、联想笔记和外观设置。",
+      note: "导入前会提示覆盖范围，建议先导出一份当前设备的备份。",
+      visual: `<div class="guide-backup-file"><span>JSON</span><strong>blueprint-memory-${dateKey()}.json</strong><small>学习阶段 · 复习时间 · 个人笔记</small></div>`,
+    },
+  ];
+
   const defaultState = {
     version: 2,
     settings: {
       newLimit: 10,
+      sessionLimit: 20,
+      studyModes: ["meaning", "usage"],
+      guideSeen: false,
       theme: "light",
       palette: "blueprint",
       glass: "off",
+      liquidGlass: false,
+      liquidDepth: "balanced",
+      liquidFlow: "gentle",
+      liquidGloss: "soft",
       customSidebar: "#0c2437",
       customAccent: "#2d6cdf",
       speechRate: 1,
@@ -113,13 +194,28 @@
       track: "all",
       intent: "all",
     },
+    study: {
+      phase: "setup",
+      taughtId: null,
+      feedback: null,
+      question: null,
+      selectedIndex: null,
+    },
+    guide: {
+      step: 0,
+    },
   };
 
   const viewRoot = document.getElementById("view-root");
   const appearanceDialog = document.getElementById("appearance-dialog");
   const appearancePaletteGrid = document.getElementById("appearance-palette-grid");
+  const guideDialog = document.getElementById("guide-dialog");
+  const limitAddDialog = document.getElementById("limit-add-dialog");
   const termDialog = document.getElementById("term-dialog");
   const termDialogContent = document.getElementById("term-dialog-content");
+  const inlineWordLookupCard = document.getElementById("word-lookup-card");
+  const floatingWordLookupCard = document.getElementById("floating-word-card");
+  const detailStack = [];
   const sidebar = document.querySelector(".sidebar");
   const mobileMenu = document.getElementById("mobile-menu");
   const themeToggle = document.getElementById("theme-toggle");
@@ -128,6 +224,9 @@
   let youdaoPlaybackToken = 0;
   let youdaoAudio = null;
   let youdaoFallbackNotified = false;
+  let modalScrollY = 0;
+  let wordLookupCloseTimer = 0;
+  let pendingTodayAdd = null;
 
   let state = loadState();
   applyTheme();
@@ -139,9 +238,17 @@
       if (!saved || typeof saved !== "object") return structuredClone(defaultState);
       const settings = { ...defaultState.settings, ...(saved.settings || {}) };
       if (!APPEARANCE_PALETTES[settings.palette]) settings.palette = "blueprint";
-      if (!GLASS_MODES.has(settings.glass)) settings.glass = "off";
+      normalizeLiquidSettings(settings);
       settings.customSidebar = normalizeAccent(settings.customSidebar, "#0c2437");
       settings.customAccent = normalizeAccent(settings.customAccent);
+      settings.sessionLimit = [10, 20, 30, 50, 0].includes(Number(settings.sessionLimit))
+        ? Number(settings.sessionLimit)
+        : 20;
+      settings.studyModes = Array.isArray(settings.studyModes)
+        ? [...new Set(settings.studyModes.filter((mode) => ["meaning", "usage", "phrase"].includes(mode)))]
+        : [...defaultState.settings.studyModes];
+      if (!settings.studyModes.length) settings.studyModes = [...defaultState.settings.studyModes];
+      settings.guideSeen = settings.guideSeen === true;
       if (Number(saved.version || 1) < 2 && Number(settings.speechRate) === 0.9) {
         settings.speechRate = 1;
       }
@@ -324,10 +431,21 @@
     const theme = state.settings.theme === "dark" ? "dark" : "light";
     const palette = APPEARANCE_PALETTES[state.settings.palette] ? state.settings.palette : "blueprint";
     const glass = GLASS_MODES.has(state.settings.glass) ? state.settings.glass : "off";
+    const liquidGlass = state.settings.liquidGlass === true;
     const root = document.documentElement;
     root.dataset.theme = theme;
     root.dataset.palette = palette;
     root.dataset.glass = glass;
+    root.dataset.liquid = liquidGlass ? "on" : "off";
+    root.dataset.liquidDepth = LIQUID_DEPTHS.has(state.settings.liquidDepth)
+      ? state.settings.liquidDepth
+      : "balanced";
+    root.dataset.liquidFlow = LIQUID_FLOWS.has(state.settings.liquidFlow)
+      ? state.settings.liquidFlow
+      : "gentle";
+    root.dataset.liquidGloss = LIQUID_GLOSSES.has(state.settings.liquidGloss)
+      ? state.settings.liquidGloss
+      : "soft";
     ["--deep-blue", "--deep-blue-2", "--theme-accent", "--theme-accent-display",
       "--theme-accent-strong", "--theme-accent-soft", "--theme-accent-border", "--theme-accent-contrast",
       "--theme-sidebar-glow", "--theme-hero-tint"]
@@ -360,10 +478,33 @@
     document.getElementById("appearance-palette-label").textContent = paletteName;
     document.getElementById("appearance-preview-name").textContent =
       `${paletteName} · ${theme === "dark" ? "深色" : "浅色"}`;
-    document.getElementById("appearance-preview-glass").textContent = GLASS_LABELS[glass];
+    document.getElementById("appearance-preview-glass").textContent = liquidGlass
+      ? `液态玻璃 · ${liquidSummary()}`
+      : GLASS_LABELS[glass];
     themeToggle?.setAttribute("aria-label", `打开外观设置，当前为${paletteName}${theme === "dark" ? "深色" : "浅色"}模式`);
     syncAppearanceControls();
     window.AndroidBridge?.setDarkMode?.(theme === "dark");
+  }
+
+  function runAppearanceChange(mutator, options = {}) {
+    const commit = () => {
+      mutator();
+      applyTheme();
+      saveState();
+    };
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (options.animate === false || reduceMotion || typeof document.startViewTransition !== "function") {
+      commit();
+      return null;
+    }
+    try {
+      const transition = document.startViewTransition(commit);
+      transition.finished.catch(() => {});
+      return transition;
+    } catch {
+      commit();
+      return null;
+    }
   }
 
   function syncAppearanceControls() {
@@ -400,10 +541,41 @@
       button.setAttribute("aria-pressed", String(active));
     });
     document.querySelectorAll("[data-appearance-glass]").forEach((button) => {
-      const active = button.dataset.appearanceGlass === state.settings.glass;
+      const active = !state.settings.liquidGlass && button.dataset.appearanceGlass === state.settings.glass;
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
     });
+    const liquidEnabled = state.settings.liquidGlass === true;
+    document.querySelectorAll("button[data-liquid-toggle]").forEach((button) => {
+      button.classList.toggle("active", liquidEnabled);
+      button.setAttribute("aria-pressed", String(liquidEnabled));
+    });
+    const liquidSection = document.getElementById("liquid-glass-section");
+    liquidSection?.classList.toggle("is-enabled", liquidEnabled);
+    const liquidControls = document.getElementById("liquid-glass-options");
+    if (liquidControls) {
+      liquidControls.setAttribute("aria-disabled", String(!liquidEnabled));
+      liquidControls.querySelectorAll("button").forEach((button) => {
+        button.disabled = !liquidEnabled;
+      });
+    }
+    document.querySelectorAll("button[data-liquid-depth]").forEach((button) => {
+      const active = button.dataset.liquidDepth === state.settings.liquidDepth;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    document.querySelectorAll("button[data-liquid-flow]").forEach((button) => {
+      const active = button.dataset.liquidFlow === state.settings.liquidFlow;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    document.querySelectorAll("button[data-liquid-gloss]").forEach((button) => {
+      const active = button.dataset.liquidGloss === state.settings.liquidGloss;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    const liquidSummaryLabel = document.getElementById("liquid-glass-summary");
+    if (liquidSummaryLabel) liquidSummaryLabel.textContent = liquidSummary();
     const customInput = document.getElementById("custom-accent");
     if (customInput) customInput.value = normalizeAccent(state.settings.customAccent);
     const customValue = document.getElementById("custom-accent-value");
@@ -431,6 +603,7 @@
     mobileMenu?.setAttribute("aria-expanded", "false");
     syncAppearanceControls();
     appearanceDialog.showModal();
+    syncModalScrollLock();
     requestAnimationFrame(() => {
       appearanceDialog.querySelector('[data-palette][aria-pressed="true"]')?.focus();
     });
@@ -438,6 +611,77 @@
 
   function closeAppearanceDialog() {
     if (appearanceDialog?.open) appearanceDialog.close();
+    syncModalScrollLock();
+  }
+
+  function syncModalScrollLock() {
+    const hasOpenDialog = [appearanceDialog, guideDialog, limitAddDialog, termDialog]
+      .some((dialog) => dialog?.open);
+    if (hasOpenDialog) {
+      if (!document.documentElement.classList.contains("modal-open")) {
+        modalScrollY = window.scrollY;
+        document.documentElement.classList.add("modal-open");
+        document.body.classList.add("modal-open");
+      }
+      return;
+    }
+    if (!document.documentElement.classList.contains("modal-open")) return;
+    document.documentElement.classList.remove("modal-open");
+    document.body.classList.remove("modal-open");
+    const restoreY = modalScrollY;
+    window.requestAnimationFrame(() => window.scrollTo(0, restoreY));
+  }
+
+  function syncGuideStep(step) {
+    const last = GUIDE_STEPS.length - 1;
+    const nextStep = Math.max(0, Math.min(last, Number(step) || 0));
+    ui.guide.step = nextStep;
+    const content = document.getElementById("guide-dialog-content");
+    const progress = document.getElementById("guide-progress");
+    const dots = document.getElementById("guide-dots");
+    const stepData = GUIDE_STEPS[nextStep];
+    if (content) {
+      content.innerHTML = `
+        <article class="guide-slide" aria-live="polite">
+          <div class="guide-slide-copy">
+            <span class="eyebrow">${escapeHtml(stepData.kicker)}</span>
+            <h3>${escapeHtml(stepData.title)}</h3>
+            <p>${escapeHtml(stepData.body)}</p>
+            <small>${escapeHtml(stepData.note)}</small>
+          </div>
+          <div class="guide-slide-visual">${stepData.visual}</div>
+        </article>
+      `;
+    }
+    if (progress) progress.style.width = `${((nextStep + 1) / GUIDE_STEPS.length) * 100}%`;
+    if (dots) {
+      dots.innerHTML = GUIDE_STEPS.map((item, index) => `
+        <button type="button" data-guide-step="${index}" class="${index === nextStep ? "active" : ""}" aria-label="查看教程第 ${index + 1} 步：${escapeHtml(item.title)}" aria-current="${index === nextStep ? "step" : "false"}"></button>
+      `).join("");
+    }
+    const previous = guideDialog?.querySelector("[data-guide-prev]");
+    const next = guideDialog?.querySelector("[data-guide-next]");
+    if (previous) previous.disabled = nextStep === 0;
+    if (next) next.textContent = nextStep === last ? "去开始背诵" : "下一步 →";
+  }
+
+  function openGuideDialog() {
+    if (!guideDialog || guideDialog.open) return;
+    sidebar?.classList.remove("open");
+    mobileMenu?.setAttribute("aria-expanded", "false");
+    syncGuideStep(ui.guide.step);
+    guideDialog.showModal();
+    syncModalScrollLock();
+  }
+
+  function finishGuide(startStudy = false) {
+    state.settings.guideSeen = true;
+    saveState();
+    if (guideDialog?.open) guideDialog.close();
+    ui.guide.step = 0;
+    syncModalScrollLock();
+    if (startStudy) openStudySetup();
+    else if (ui.route === "today") renderToday();
   }
 
   function refreshSpeechVoices() {
@@ -584,11 +828,11 @@
   }
 
   function scheduleAutoSpeak(term) {
-    if (!state.settings.autoSpeak || !term || ui.route !== "today") return;
+    if (!state.settings.autoSpeak || !term || !["today", "study"].includes(ui.route)) return;
     if (lastAutoSpokenTermId === term.id) return;
     lastAutoSpokenTermId = term.id;
     window.setTimeout(() => {
-      if (ui.route === "today" && Number(state.session?.currentId) === term.id) {
+      if (["today", "study"].includes(ui.route) && Number(state.session?.currentId) === term.id) {
         speakText(term.en);
       }
     }, 250);
@@ -687,6 +931,11 @@
       completedIds: [],
       ratings: [],
       currentId: null,
+      manualOverflowIds: [],
+      focusActive: false,
+      focusIds: [],
+      focusPhase: "overview",
+      focusStartedAt: null,
     };
   }
 
@@ -695,6 +944,11 @@
     if (!state.session || state.session.date !== today) {
       state.session = makeSession();
     }
+    if (!Array.isArray(state.session.focusIds)) state.session.focusIds = [];
+    if (!Array.isArray(state.session.manualOverflowIds)) state.session.manualOverflowIds = [];
+    if (typeof state.session.focusActive !== "boolean") state.session.focusActive = false;
+    if (!["overview", "quiz"].includes(state.session.focusPhase)) state.session.focusPhase = "overview";
+    if (!state.session.focusStartedAt) state.session.focusStartedAt = null;
 
     state.session.completedIds = uniqueIds(state.session.completedIds).filter((id) => {
       const progress = currentTermState(id);
@@ -718,10 +972,13 @@
     state.session.reviewIds = uniqueIds([...dueIds, ...state.session.extraReviewIds]);
 
     let sessionNew = uniqueIds(state.session.newIds);
-    while (sessionNew.length > state.settings.newLimit) {
-      const removable = [...sessionNew].reverse().find((id) => !completed.has(id));
-      if (removable == null) break;
-      sessionNew.splice(sessionNew.indexOf(removable), 1);
+    const manualOverflow = new Set(uniqueIds(state.session.manualOverflowIds));
+    if (!manualOverflow.size) {
+      while (sessionNew.length > state.settings.newLimit) {
+        const removable = [...sessionNew].reverse().find((id) => !completed.has(id));
+        if (removable == null) break;
+        sessionNew.splice(sessionNew.indexOf(removable), 1);
+      }
     }
 
     const deferredIds = (state.deferredNew || [])
@@ -743,6 +1000,8 @@
       if (deferredIds.includes(id)) selectedDeferred.add(id);
     }
     state.session.newIds = sessionNew;
+    state.session.manualOverflowIds = uniqueIds(state.session.manualOverflowIds)
+      .filter((id) => sessionNew.includes(id) && !completed.has(id));
     state.session.completedIds = uniqueIds(state.session.completedIds);
     state.session.ratings = Array.isArray(state.session.ratings) ? state.session.ratings : [];
     if (selectedDeferred.size) {
@@ -765,12 +1024,100 @@
     return uniqueIds([...reviewQueue, ...newQueue]).filter((id) => termById.has(id));
   }
 
+  function getFocusQueue() {
+    if (!state.session.focusActive) return [];
+    const completed = new Set(state.session.completedIds);
+    return uniqueIds(state.session.focusIds || [])
+      .filter((id) => !completed.has(id) && termById.has(id));
+  }
+
+  function getActiveQueue() {
+    return state.session.focusActive ? getFocusQueue() : getQueue();
+  }
+
+  function getSessionPlan(limit = state.settings.sessionLimit) {
+    const completed = new Set(state.session.completedIds);
+    const review = uniqueIds(state.session.reviewIds || [])
+      .filter((id) => !completed.has(id) && currentTermState(id) && termById.has(id));
+    const newQueue = uniqueIds(state.session.newIds || [])
+      .filter((id) => !completed.has(id) && !review.includes(id) && termById.has(id));
+    const allIds = [...review, ...newQueue];
+    const numericLimit = Number(limit);
+    const size = numericLimit > 0 ? Math.min(numericLimit, allIds.length) : allIds.length;
+    const ids = allIds.slice(0, size);
+    return {
+      ids,
+      allIds,
+      size,
+      reviewTotal: review.length,
+      newTotal: newQueue.length,
+      reviewIncluded: ids.filter((id) => review.includes(id)).length,
+      newIncluded: ids.filter((id) => newQueue.includes(id)).length,
+    };
+  }
+
+  function openStudySetup() {
+    if (state.session.focusActive && getFocusQueue().length) {
+      navigate("study");
+      return;
+    }
+    state.session.focusActive = false;
+    state.session.focusIds = [];
+    state.session.focusPhase = "overview";
+    state.session.focusStartedAt = null;
+    ui.study = {
+      phase: "setup",
+      taughtId: null,
+      feedback: null,
+      question: null,
+      selectedIndex: null,
+    };
+    saveState();
+    navigate("study");
+  }
+
+  function startFocusSession(options = {}) {
+    ensureSession();
+    const plan = getSessionPlan();
+    let ids = options.ids
+      ? uniqueIds(options.ids).filter((id) => termById.has(id) && !state.session.completedIds.includes(id))
+      : [...plan.ids];
+    const focusId = Number(options.focusTermId);
+    if (Number.isFinite(focusId) && focusId && termById.has(focusId)) {
+      ids = uniqueIds([focusId, ...ids.filter((id) => id !== focusId)]);
+    }
+    if (state.settings.sessionLimit > 0) ids = ids.slice(0, state.settings.sessionLimit);
+    if (!ids.length) {
+      toast(options.focusTermId ? "这个节点暂时不在今日任务中" : "今天没有待背诵内容，先添加新词或等待复习到期。");
+      return;
+    }
+    state.session.focusActive = true;
+    state.session.focusIds = ids;
+    state.session.focusPhase = "overview";
+    state.session.focusStartedAt = new Date().toISOString();
+    state.session.currentId = ids[0];
+    lastAutoSpokenTermId = null;
+    ui.study = {
+      phase: "overview",
+      taughtId: null,
+      feedback: null,
+      question: null,
+      selectedIndex: null,
+    };
+    saveState();
+    navigate("study", { scroll: false });
+    resetPageScroll();
+  }
+
   function sessionTotal() {
-    return uniqueIds([...(state.session.reviewIds || []), ...(state.session.newIds || [])]).length;
+    const ids = state.session.focusActive
+      ? state.session.focusIds
+      : [...(state.session.reviewIds || []), ...(state.session.newIds || [])];
+    return uniqueIds(ids || []).length;
   }
 
   function setCurrentTerm() {
-    const queue = getQueue();
+    const queue = getActiveQueue();
     if (!queue.length) {
       state.session.currentId = null;
       ui.revealed = false;
@@ -820,7 +1167,7 @@
     state.activityDays = [...new Set(state.activityDays)].sort();
   }
 
-  function rateCurrent(rating) {
+  function rateCurrent(rating, options = {}) {
     const term = setCurrentTerm();
     if (!term) return;
     const today = dateKey();
@@ -876,14 +1223,17 @@
     state.session.ratings.push({ termId: term.id, rating, date: today, at: now.toISOString(), intervalMinutes });
     markActivity();
 
-    const queue = getQueue();
-    state.session.currentId = queue[0] || null;
-    lastAutoSpokenTermId = null;
-    ui.revealed = false;
-    ui.hideNewAnswer = false;
+    if (options.advance !== false) {
+      const queue = getActiveQueue();
+      state.session.currentId = queue[0] || null;
+      lastAutoSpokenTermId = null;
+      ui.revealed = false;
+      ui.hideNewAnswer = false;
+    }
     saveState();
-    render();
-    toast(`${term.en} 将在 ${scheduleLabel(intervalMinutes)} 后复习`);
+    if (options.render !== false) render();
+    if (!options.silent) toast(`${term.en} 将在 ${scheduleLabel(intervalMinutes)} 后复习`);
+    return term;
   }
 
   function upcomingReviewBars() {
@@ -929,6 +1279,7 @@
 
   function render() {
     ensureSession();
+    document.documentElement.dataset.view = ui.route;
     renderNavigation();
     renderSidebar();
     const meta = pageMeta[ui.route] || pageMeta.today;
@@ -936,6 +1287,7 @@
     document.getElementById("page-kicker").textContent = `${meta.kicker} · ${dateKey()}`;
 
     if (ui.route === "today") renderToday();
+    if (ui.route === "study") renderStudy();
     if (ui.route === "wordlist") renderWordlist();
     if (ui.route === "learned") renderLearned();
     if (ui.route === "library") renderLibrary();
@@ -949,7 +1301,8 @@
 
   function renderNavigation() {
     document.querySelectorAll("[data-route]").forEach((button) => {
-      const active = button.dataset.route === ui.route;
+      const active = button.dataset.route === ui.route
+        || (ui.route === "study" && button.dataset.route === "today");
       button.classList.toggle("active", active);
       if (button.classList.contains("nav-item") || button.classList.contains("mobile-nav-item")) {
         button.setAttribute("aria-current", active ? "page" : "false");
@@ -971,13 +1324,15 @@
 
   function renderSidebar() {
     const queue = getQueue();
+    const plan = getSessionPlan();
     const activeId = state.session.currentId ?? queue[0];
     const current = queue.length ? termById.get(Number(activeId)) : null;
-    const total = sessionTotal();
-    const done = state.session.completedIds.length;
+    const planIds = new Set(plan.allIds);
+    const total = plan.size;
+    const done = state.session.completedIds.filter((id) => planIds.has(id)).length;
     document.getElementById("sidebar-focus").textContent = current ? current.en : "今日队列已完成";
     document.getElementById("sidebar-queue-copy").textContent = current
-      ? `${queue.length} 张待完成 · ${state.session.reviewIds.length} 张到期复习`
+      ? `本次 ${plan.size} 张 · 到期复习优先`
       : `今日完成 ${done} 张，下一批复习会按记忆间隔出现。`;
     document.getElementById("sidebar-progress-bar").style.width = `${total ? Math.min(100, (done / total) * 100) : 0}%`;
   }
@@ -985,30 +1340,32 @@
   function renderToday() {
     ensureSession();
     const queue = getQueue();
-    const current = setCurrentTerm();
-    scheduleAutoSpeak(current);
+    const plan = getSessionPlan();
     const stats = getStats();
-    const total = sessionTotal();
-    const done = state.session.completedIds.length;
+    const total = plan.size;
+    const planIds = new Set(plan.allIds);
+    const done = state.session.completedIds.filter((id) => planIds.has(id)).length;
     const percent = total ? Math.round((done / total) * 100) : 0;
     const reviewCount = state.session.reviewIds.length;
     const knownCount = state.session.ratings.filter((item) => item.rating === "known").length;
     const recallRate = state.session.ratings.length ? Math.round((knownCount / state.session.ratings.length) * 100) : 0;
     const nextReview = upcomingReviewBars().slice(1, 3).reduce((sum, day) => sum + day.count, 0);
+    const sessionLimitLabel = state.settings.sessionLimit > 0 ? `${state.settings.sessionLimit} 张` : "全部";
 
     viewRoot.innerHTML = `
       <div class="view-enter">
         <section class="dashboard-hero">
           <div>
             <span class="eyebrow">${escapeHtml(formatDateCN(dateKey(), true))}</span>
-            <h2>今天不是背单词，<br>而是把 <em>节点连起来</em>。</h2>
-            <p>新词先显示中文和基础用途，再进入主动回忆；复习词先测试，答错会自动缩短下一次间隔。</p>
+            <h2>先复习旧节点，<br>再学习 <em>新的连接</em>。</h2>
+            <p>专注背诵会先处理到期复习，再进入新词；答题卡、解释和进度都集中在一个页面。</p>
             <div class="hero-actions">
-              <button class="button button-primary" type="button" data-action="scroll-study">${queue.length ? "继续今日队列" : "查看学习总结"} <kbd>${queue.length}</kbd></button>
+              <button class="button button-primary" type="button" data-action="start-focus" ${plan.size ? "" : "disabled"}>开始专注背诵 <kbd>${plan.size}</kbd></button>
+              <button class="button" type="button" data-action="open-guide">使用教程</button>
               <button class="button" type="button" data-route="wordlist">查看今日词单</button>
-              <button class="button button-ghost" type="button" data-route="learned">复习已学词</button>
             </div>
             <div class="hero-pills">
+              <span class="pill">本次上限 <strong>${sessionLimitLabel}</strong></span>
               <span class="pill">今日新学 <strong>${state.session.newIds.length}</strong></span>
               <span class="pill">到期复习 <strong>${reviewCount}</strong></span>
               <span class="pill">未来两天复习 <strong>${nextReview}</strong></span>
@@ -1022,31 +1379,444 @@
                 <span>今日完成</span>
               </div>
             </div>
-            <p>${done} / ${total || 0} 张 · 每次回忆后自动安排下一次复习</p>
+            <p>${done} / ${total || 0} 张 · 本次先复习、后新学</p>
           </div>
         </section>
 
+        ${state.settings.guideSeen ? "" : `
+          <section class="guide-spotlight">
+            <span class="guide-spotlight-mark">?</span>
+            <div><strong>第一次使用？先看 30 秒教程</strong><p>这里会告诉你复习顺序、背诵入口和答题方式。</p></div>
+            <button class="button" type="button" data-action="open-guide">开始了解 →</button>
+          </section>
+        `}
+
+        <section class="focus-launch" aria-labelledby="focus-launch-title">
+          <div class="focus-launch-copy">
+            <span class="eyebrow">START HERE · RECITATION</span>
+            <h2 id="focus-launch-title">背诵入口在<em>这里</em></h2>
+            <p>${plan.reviewIncluded
+              ? `先完成 ${plan.reviewIncluded} 张到期复习${plan.newIncluded ? `，再学习 ${plan.newIncluded} 张新词` : ""}。`
+              : `今天没有优先到期项，将直接学习 ${plan.newIncluded} 张新词。`}</p>
+          </div>
+          <div class="focus-launch-stats" aria-label="本次任务构成">
+            <div><span>先复习</span><strong>${plan.reviewIncluded}</strong></div>
+            <i aria-hidden="true">→</i>
+            <div><span>后新学</span><strong>${plan.newIncluded}</strong></div>
+            <div class="focus-launch-total"><span>本次总量</span><strong>${plan.size}</strong></div>
+          </div>
+          <button class="focus-enter-button" type="button" data-action="start-focus" ${plan.size ? "" : "disabled"}>
+            <span>进入专注背诵</span>
+            <small>只显示当前卡片与作答</small>
+            <b aria-hidden="true">→</b>
+          </button>
+        </section>
+
         <section class="metric-strip" aria-label="学习状态">
-          <div class="metric"><span>待完成队列</span><strong>${queue.length}</strong><small>到期复习优先</small></div>
+          <div class="metric"><span>本次待完成</span><strong>${plan.size}</strong><small>按本次总量截取</small></div>
           <div class="metric"><span>今日回忆正确率</span><strong>${recallRate}%</strong><small>已掌握 / 已作答</small></div>
           <div class="metric"><span>学习中</span><strong>${stats.learning}</strong><small>已进入复习循环</small></div>
           <div class="metric"><span>长期记忆</span><strong>${stats.mastered}</strong><small>完成更高阶段间隔</small></div>
         </section>
 
         <section class="learning-steps" aria-label="今日学习流程">
-          <div class="learning-step"><span>01</span><div><strong>认新词</strong><small>中文释义与用途直接显示</small></div></div>
-          <div class="learning-step"><span>02</span><div><strong>主动回忆</strong><small>复习词先隐藏释义再作答</small></div></div>
-          <div class="learning-step"><span>03</span><div><strong>艾宾浩斯复习</strong><small>5 分钟起，逐步拉长到 30 天</small></div></div>
-        </section>
-
-        <section class="study-grid">
-          <div id="study-card">
-            ${current ? renderFlashcard(current, queue) : renderCompletion(stats)}
-          </div>
-          ${current ? renderStudySidebar(current) : renderFinishedSidebar(stats)}
+          <div class="learning-step"><span>01</span><div><strong>先复习</strong><small>到期词按遗忘曲线优先插入</small></div></div>
+          <div class="learning-step"><span>02</span><div><strong>再认新词</strong><small>先看释义与场景，再主动作答</small></div></div>
+          <div class="learning-step"><span>03</span><div><strong>选择组合</strong><small>释义、用途、拆词轮换训练</small></div></div>
         </section>
       </div>
     `;
+  }
+
+  const STUDY_MODE_LABELS = {
+    meaning: "英译中 · 选释义",
+    usage: "使用场景",
+    phrase: "拆词 · 组合释义",
+  };
+
+  function studyHash(value) {
+    return String(value).split("").reduce((hash, char) => ((hash * 31) + char.charCodeAt(0)) >>> 0, 2166136261);
+  }
+
+  function deterministicShuffle(items, seed) {
+    const result = [...items];
+    let value = studyHash(seed);
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      value = (value * 1664525 + 1013904223) >>> 0;
+      const swapIndex = value % (index + 1);
+      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+    }
+    return result;
+  }
+
+  function buildStudyQuestion(term) {
+    const enabledModes = state.settings.studyModes.filter((mode) => mode !== "phrase" || term.phrase?.parts?.length);
+    const modes = enabledModes.length ? enabledModes : ["meaning"];
+    const mode = modes[studyHash(`${term.id}-${term.en}`) % modes.length];
+    const pool = uniqueIds(state.session.focusIds || [])
+      .filter((id) => id !== term.id)
+      .map((id) => termById.get(id))
+      .filter(Boolean);
+    let correctValue = term.zh;
+    let prompt = "这个 Blueprint 节点的中文含义是？";
+    let helper = "先回忆节点用途，再选择最准确的基础释义。";
+    let field = "zh";
+    if (mode === "usage") {
+      correctValue = term.usage;
+      prompt = "这个节点最常用于什么场景？";
+      helper = "场景选项来自同一知识范围，注意动作对象与触发条件。";
+      field = "usage";
+    } else if (mode === "phrase") {
+      correctValue = term.phrase?.memory || term.zh;
+      prompt = "哪一组拆词解释最符合这个节点？";
+      helper = "先理解每个单词，再把它们组合成完整功能。";
+      field = "phrase";
+    }
+    const valueFor = (item) => field === "phrase" ? (item.phrase?.memory || item.zh) : item[field];
+    const distractors = [];
+    const used = new Set([correctValue]);
+    for (const item of deterministicShuffle(pool, `${term.id}-${mode}-distractors`)) {
+      const value = valueFor(item);
+      if (!value || used.has(value)) continue;
+      used.add(value);
+      distractors.push(value);
+      if (distractors.length === 3) break;
+    }
+    const options = deterministicShuffle([correctValue, ...distractors], `${term.id}-${mode}-options`);
+    return {
+      mode,
+      prompt,
+      helper,
+      options,
+      correctIndex: options.indexOf(correctValue),
+      correctValue,
+    };
+  }
+
+  function renderFocusHeader(term, queue) {
+    const initial = Math.max(1, state.session.focusIds.length);
+    const completed = state.session.completedIds.filter((id) => state.session.focusIds.includes(id)).length;
+    const overview = state.session.focusPhase !== "quiz";
+    const currentIndex = Math.max(0, state.session.focusIds.indexOf(Number(term.id)));
+    const position = overview ? currentIndex + 1 : Math.min(completed + 1, initial);
+    const percent = overview
+      ? Math.round((currentIndex / initial) * 100)
+      : Math.round((completed / initial) * 100);
+    return `
+      <header class="focus-header">
+        <button class="focus-exit" type="button" data-action="exit-study" aria-label="退出专注背诵">← 退出</button>
+        <div class="focus-session-title">
+          <span>${overview ? "01 · 基础通览" : "02 · 混合练习"}</span>
+          <strong>${escapeHtml(term.en)}</strong>
+        </div>
+        <div class="focus-counter"><strong>${position}</strong><span>/ ${initial}</span></div>
+        <div class="focus-progress" aria-label="本次背诵进度"><span style="width:${percent}%"></span></div>
+      </header>
+    `;
+  }
+
+  function renderStudySetup() {
+    const plan = getSessionPlan();
+    const limits = [10, 20, 30, 50, 0];
+    viewRoot.innerHTML = `
+      <div class="focus-setup-page">
+        <div class="focus-setup-head">
+          <button class="focus-exit" type="button" data-action="exit-study">← 返回今日学习</button>
+          <button class="button button-ghost" type="button" data-action="open-guide">怎么用？</button>
+        </div>
+        <section class="focus-setup-card">
+          <span class="eyebrow">READY TO RECALL</span>
+          <h2>今天怎么背？</h2>
+          <p>先处理到期复习，再插入新词。本轮所有词先统一认一遍，全部过完后才进入混合选择。</p>
+
+          <div class="focus-pass-guide" aria-label="本轮背诵流程">
+            <div><span>01</span><strong>基础通览</strong><small>本轮 ${plan.size} 个词逐个看释义与场景</small></div>
+            <i aria-hidden="true">→</i>
+            <div><span>02</span><strong>混合练习</strong><small>再按所选组合统一出选择题</small></div>
+          </div>
+
+          <div class="focus-setup-block">
+            <div class="focus-setup-label"><strong>本次背诵总量</strong><small>到期复习会占用最前面的名额。</small></div>
+            <div class="focus-limit-grid" role="group" aria-label="本次背诵总量">
+              ${limits.map((limit) => `
+                <button type="button" data-study-limit="${limit}" class="${state.settings.sessionLimit === limit ? "active" : ""}" aria-pressed="${state.settings.sessionLimit === limit}">
+                  <strong>${limit || "全部"}</strong><span>${limit ? "张" : "剩余"}</span>
+                </button>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="focus-setup-block">
+            <div class="focus-setup-label"><strong>答题组合</strong><small>至少选一种，实际题目会按节点轮换。</small></div>
+            <div class="focus-mode-grid" role="group" aria-label="答题组合">
+              ${Object.entries(STUDY_MODE_LABELS).map(([mode, label]) => {
+                const active = state.settings.studyModes.includes(mode);
+                const note = mode === "meaning" ? "Blueprint Class → 蓝图层" : mode === "usage" ? "它适合放进什么场景？" : "Blueprint + Class → 蓝图层";
+                return `<button type="button" data-study-mode="${mode}" class="${active ? "active" : ""}" aria-pressed="${active}"><span>${active ? "✓" : "+"}</span><div><strong>${label}</strong><small>${note}</small></div></button>`;
+              }).join("")}
+            </div>
+          </div>
+
+          <div class="focus-plan-preview">
+            <div><span>先复习</span><strong>${plan.reviewIncluded}</strong></div>
+            <i aria-hidden="true">→</i>
+            <div><span>后新学</span><strong>${plan.newIncluded}</strong></div>
+            <div class="is-total"><span>本轮词汇</span><strong>${plan.size}</strong></div>
+          </div>
+
+          <button class="button button-primary focus-start-button" type="button" data-action="begin-focus" ${plan.size ? "" : "disabled"}>
+            开始基础通览 <span>${plan.size} 个词 · 两遍 →</span>
+          </button>
+        </section>
+      </div>
+    `;
+  }
+
+  function renderStudyLearn(term) {
+    const initial = Math.max(1, state.session.focusIds.length);
+    const currentIndex = Math.max(0, state.session.focusIds.indexOf(Number(term.id)));
+    const last = currentIndex >= initial - 1;
+    return `
+      <article class="focus-card focus-learn-card">
+        <div class="focus-card-meta">
+          <span class="focus-badge">基础通览 · ${currentIndex + 1} / ${initial}</span>
+          <span>${escapeHtml(term.category)}</span>
+        </div>
+        <p class="focus-kicker">${currentTermState(term.id) ? "复习前先核对基础内容" : "先把本轮所有新词认一遍"}</p>
+        <div class="focus-word-row">
+          <h2>${escapeHtml(term.en)}</h2>
+          ${speakButtonMarkup(term.en)}
+        </div>
+        <div class="focus-learn-grid">
+          <div><span>中文含义</span><strong>${escapeHtml(term.zh)}</strong></div>
+          <div><span>使用场景</span><p>${escapeHtml(term.usage)}</p></div>
+        </div>
+        ${phraseMarkup(term)}
+        <div class="focus-learn-tip"><span>记忆抓手</span><p>${escapeHtml(term.tip)}</p></div>
+        <button class="button button-primary focus-primary-action" type="button" data-action="study-overview-next">${last ? "基础完成，进入混合练习 →" : "看完了，下一个 →"}</button>
+      </article>
+    `;
+  }
+
+  function compactStudyOption(value, maxLength = 68) {
+    const clean = String(value || "").replace(/\s+/g, " ").trim();
+    return clean.length > maxLength ? `${clean.slice(0, maxLength - 1)}…` : clean;
+  }
+
+  function renderStudyQuestion(term, question) {
+    const phraseSplit = question.mode === "phrase" && term.phrase?.parts?.length
+      ? `<div class="focus-phrase-split" aria-label="需要组合的单词">
+          ${term.phrase.parts.map((part) => `<span>${escapeHtml(part.en)}</span>`).join("<i>+</i>")}
+        </div>`
+      : "";
+    return `
+      <article class="focus-card focus-question-card">
+        <div class="focus-card-meta">
+          <span class="focus-badge">${STUDY_MODE_LABELS[question.mode]}</span>
+          <span>${escapeHtml(term.category)}</span>
+        </div>
+        <p class="focus-kicker">${escapeHtml(question.prompt)}</p>
+        <div class="focus-word-row">
+          <h2>${escapeHtml(question.mode === "phrase" ? "组合这些词" : term.en)}</h2>
+          ${speakButtonMarkup(term.en)}
+        </div>
+        ${phraseSplit}
+        <p class="focus-question-helper">${escapeHtml(question.helper)}</p>
+        <div class="focus-answer-grid" role="group" aria-label="选择答案">
+          ${question.options.map((option, index) => `
+            <button type="button" data-study-answer="${index}" aria-label="选项 ${String.fromCharCode(65 + index)}：${escapeHtml(option)}">
+              <span>${String.fromCharCode(65 + index)}</span>
+              <strong>${escapeHtml(compactStudyOption(option))}</strong>
+            </button>
+          `).join("")}
+        </div>
+        <p class="focus-key-hint">键盘可依次按 A–D 选择答案</p>
+      </article>
+    `;
+  }
+
+  function renderStudyFeedback(term, question, feedback) {
+    const option = question.options[feedback.selectedIndex];
+    return `
+      <article class="focus-card focus-feedback-card ${feedback.correct ? "is-correct" : "is-wrong"}">
+        <div class="focus-result-mark">${feedback.correct ? "✓" : "!"}</div>
+        <p class="focus-kicker">${feedback.correct ? "这次选对了" : "这次没有选对"}</p>
+        <h2>${escapeHtml(term.en)}</h2>
+        <div class="focus-result-answer">
+          <span>你的选择</span>
+          <p>${escapeHtml(option)}</p>
+          ${feedback.correct ? "" : `<span>正确答案</span><p class="is-correct">${escapeHtml(question.correctValue)}</p>`}
+        </div>
+        <div class="focus-explanation-grid">
+          <div><span>中文含义</span><strong>${escapeHtml(term.zh)}</strong></div>
+          <div><span>使用场景</span><p>${escapeHtml(term.usage)}</p></div>
+        </div>
+        <details class="focus-detail-drawer">
+          <summary>继续理解：拆词与避坑提示 <span>展开</span></summary>
+          <div>${phraseMarkup(term)}<div class="focus-learn-tip"><span>避坑</span><p>${escapeHtml(term.tip)}</p></div></div>
+        </details>
+        <div class="focus-next-row">
+          <button class="button button-primary focus-primary-action" type="button" data-action="study-next">继续下一张 →</button>
+          <button class="button button-ghost" type="button" data-term-id="${term.id}">查看完整词条</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderStudyComplete() {
+    const ids = uniqueIds(state.session.focusIds || []);
+    const ratings = state.session.ratings.filter((item) => ids.includes(item.termId));
+    const known = ratings.filter((item) => item.rating === "known").length;
+    const needsReview = ratings.filter((item) => item.rating !== "known").length;
+    return `
+      <div class="focus-complete-page">
+        <div class="focus-complete-card">
+          <span class="focus-complete-check">✓</span>
+          <span class="eyebrow">SESSION COMPLETE</span>
+          <h2>这一轮完成了</h2>
+          <p>答错的词已经按遗忘曲线缩短间隔，系统会在合适的时间再次带回来。</p>
+          <div class="focus-complete-stats">
+            <div><strong>${ratings.length}</strong><span>本轮作答</span></div>
+            <div><strong>${known}</strong><span>一次选对</span></div>
+            <div><strong>${needsReview}</strong><span>需要回看</span></div>
+          </div>
+          <div class="focus-complete-actions">
+            <button class="button button-primary" type="button" data-action="restart-focus">再背一轮</button>
+            <button class="button" type="button" data-action="exit-study">返回今日学习</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderStudy() {
+    ensureSession();
+    if (!state.session.focusActive && ui.study.phase !== "complete") {
+      renderStudySetup();
+      return;
+    }
+    if (state.session.focusPhase !== "quiz") {
+      const ids = uniqueIds(state.session.focusIds || []);
+      const overviewTerm = termById.get(Number(state.session.currentId)) || termById.get(ids[0]);
+      if (!overviewTerm) {
+        renderStudySetup();
+        return;
+      }
+      state.session.currentId = overviewTerm.id;
+      ui.study.phase = "overview";
+      viewRoot.innerHTML = `
+        <div class="focus-page view-enter">
+          ${renderFocusHeader(overviewTerm, ids)}
+          <section class="focus-stage" aria-label="基础通览卡片">${renderStudyLearn(overviewTerm)}</section>
+        </div>
+      `;
+      document.getElementById("page-title").textContent = "专注背诵";
+      document.getElementById("page-kicker").textContent = `FOCUS SESSION · ${dateKey()}`;
+      scheduleAutoSpeak(overviewTerm);
+      return;
+    }
+    const queue = getFocusQueue();
+    if (!queue.length && ui.study.phase !== "feedback") {
+      ui.study.phase = "complete";
+      viewRoot.innerHTML = `<div class="view-enter">${renderStudyComplete()}</div>`;
+      return;
+    }
+    const term = termById.get(Number(state.session.currentId)) || termById.get(queue[0]);
+    if (!term) {
+      renderStudySetup();
+      return;
+    }
+    state.session.currentId = term.id;
+    if (ui.study.phase === "question") {
+      ui.study.question = buildStudyQuestion(term);
+    }
+    let card = "";
+    if (ui.study.phase === "feedback" && ui.study.feedback && ui.study.question) {
+      card = renderStudyFeedback(term, ui.study.question, ui.study.feedback);
+    } else {
+      ui.study.phase = "question";
+      ui.study.question = buildStudyQuestion(term);
+      card = renderStudyQuestion(term, ui.study.question);
+    }
+    viewRoot.innerHTML = `
+      <div class="focus-page view-enter">
+        ${renderFocusHeader(term, queue)}
+        <section class="focus-stage" aria-label="当前背诵卡片">${card}</section>
+      </div>
+    `;
+    document.getElementById("page-title").textContent = "专注背诵";
+    document.getElementById("page-kicker").textContent = `FOCUS SESSION · ${dateKey()}`;
+    scheduleAutoSpeak(term);
+  }
+
+  function answerStudyQuestion(index) {
+    const term = setCurrentTerm();
+    if (!term || ui.study.phase !== "question" || !ui.study.question) return;
+    const selectedIndex = Number(index);
+    if (!Number.isInteger(selectedIndex) || !ui.study.question.options[selectedIndex]) return;
+    const correct = selectedIndex === ui.study.question.correctIndex;
+    rateCurrent(correct ? "known" : "forgot", {
+      advance: false,
+      render: false,
+      silent: true,
+    });
+    ui.study.feedback = { selectedIndex, correct };
+    ui.study.phase = "feedback";
+    saveState();
+    renderStudy();
+  }
+
+  function advanceStudyOverview() {
+    const ids = uniqueIds(state.session.focusIds || []);
+    const currentIndex = ids.indexOf(Number(state.session.currentId));
+    const nextId = ids[currentIndex + 1];
+    if (nextId) {
+      state.session.currentId = nextId;
+      ui.study.phase = "overview";
+      ui.study.feedback = null;
+      lastAutoSpokenTermId = null;
+      saveState();
+      renderStudy();
+      return;
+    }
+    state.session.focusPhase = "quiz";
+    const queue = getFocusQueue();
+    state.session.currentId = queue[0] || ids[0] || null;
+    ui.study = {
+      phase: "question",
+      taughtId: null,
+      feedback: null,
+      question: null,
+      selectedIndex: null,
+    };
+    lastAutoSpokenTermId = null;
+    saveState();
+    renderStudy();
+  }
+
+  function advanceStudyQueue() {
+    const queue = getFocusQueue();
+    ui.study = {
+      phase: queue.length ? "question" : "complete",
+      taughtId: null,
+      feedback: null,
+      question: null,
+      selectedIndex: null,
+    };
+    state.session.currentId = queue[0] || null;
+    lastAutoSpokenTermId = null;
+    saveState();
+    renderStudy();
+  }
+
+  function exitFocusSession() {
+    state.session.focusActive = false;
+    state.session.focusIds = [];
+    state.session.focusPhase = "overview";
+    state.session.focusStartedAt = null;
+    ui.study.phase = "setup";
+    saveState();
+    navigate("today");
   }
 
   function getSessionWordEntries() {
@@ -1275,20 +2045,26 @@
     ui.revealed = false;
     ui.hideNewAnswer = false;
     saveState();
-    navigate("today");
+    startFocusSession({ focusTermId: id });
   }
 
   function addTermToToday(termId) {
     const id = Number(termId);
     const term = termById.get(id);
     if (!term) return;
-    closeTermDialog();
     ensureSession();
 
     const progress = currentTermState(id);
     if (progress) {
-      startStudyingTerm(id, true);
-      toast(`${term.en} 已加入今日复习`);
+      if (state.session.reviewIds.includes(id)) {
+        toast(`${term.en} 已在今日复习队列中`);
+        return;
+      }
+      state.session.extraReviewIds = uniqueIds([...state.session.extraReviewIds, id]);
+      saveState();
+      render();
+      if (termDialog.open && detailStack.length) renderDetailView(detailStack.at(-1), { restoreScroll: true });
+      toast(`${term.en} 已加入今日复习，不会自动开始`);
       return;
     }
 
@@ -1296,60 +2072,119 @@
       if (state.session.completedIds.includes(id)) {
         toast(`${term.en} 今日已经完成`);
       } else {
-        state.session.currentId = id;
-        lastAutoSpokenTermId = null;
-        ui.revealed = false;
-        ui.hideNewAnswer = false;
-        saveState();
-        navigate("today");
-        toast(`${term.en} 已在今日词单`);
+        toast(`${term.en} 已在今日词单，点“进入专注背诵”即可开始`);
       }
       return;
     }
 
     const completed = new Set(state.session.completedIds);
     const oldNewIds = [...state.session.newIds];
-    const queueBefore = getQueue();
-    const oldCurrentId = queueBefore.includes(Number(state.session.currentId))
-      ? Number(state.session.currentId)
-      : queueBefore[0] || null;
     const displacedId = [...oldNewIds]
       .reverse()
       .find((item) => item !== id && item !== Number(state.session.currentId) && !completed.has(item));
     const displacedTerm = displacedId ? termById.get(displacedId) : null;
 
-    state.session.newIds = [id, ...oldNewIds.filter((item) => item !== id && item !== displacedId)];
-    state.deferredNew = (state.deferredNew || []).filter((item) => Number(item.id) !== id);
-    if (displacedId) {
-      state.deferredNew.push({ id: displacedId, due: addDays(dateKey(), 1), reason: `为 ${term.en} 顺延` });
-    }
-    state.session.currentId = id;
-    lastAutoSpokenTermId = null;
-    ui.revealed = false;
-    ui.hideNewAnswer = false;
-    saveState();
-    navigate("today");
+    pendingTodayAdd = {
+      id,
+      term,
+      oldNewIds,
+      oldManualOverflowIds: [...(state.session.manualOverflowIds || [])],
+      displacedId,
+      displacedTerm,
+    };
 
-    const message = displacedTerm
-      ? `${term.en} 已加入；${displacedTerm.en} 已顺延到明天`
-      : `${term.en} 已加入今日词单`;
-    toast(message, {
-      duration: 5200,
-      actionLabel: "撤销",
-      onAction: () => {
-        if (currentTermState(id)) {
-          toast("这个词已经开始学习，不能再撤销本次替换");
-          return;
-        }
-        state.session.newIds = oldNewIds;
-        if (displacedId) {
-          state.deferredNew = (state.deferredNew || []).filter((item) => Number(item.id) !== displacedId);
-        }
-        state.session.currentId = oldCurrentId || oldNewIds[0] || null;
-        saveState();
-        render();
-        toast("已撤销，今日词单恢复原样");
-      },
+    if (oldNewIds.length < state.settings.newLimit) {
+      commitTodayAdd("overflow", { forced: true });
+      return;
+    }
+
+    const dialogCopy = document.getElementById("limit-add-copy");
+    const overCount = document.getElementById("limit-add-over-count");
+    const replaceWord = document.getElementById("limit-add-replace-word");
+    const replaceButton = limitAddDialog?.querySelector('[data-action="limit-add-replace"]');
+    if (dialogCopy) {
+      dialogCopy.textContent = `预设每天 ${state.settings.newLimit} 个新词，今日词单已有 ${oldNewIds.length} 个。请选择“${term.en}”的加入方式。`;
+    }
+    if (overCount) overCount.textContent = `本次共 ${oldNewIds.length + 1} 个词`;
+    if (replaceWord) {
+      replaceWord.textContent = displacedTerm
+        ? `替换「${displacedTerm.en}」`
+        : "当前没有可顺延的未完成词";
+    }
+    if (replaceButton) replaceButton.disabled = !displacedId;
+    limitAddDialog?.classList.remove("is-closing");
+    limitAddDialog?.showModal();
+    syncModalScrollLock();
+  }
+
+  function closeLimitAddDialog(callback = null) {
+    if (!limitAddDialog?.open) {
+      callback?.();
+      return;
+    }
+    const finish = () => {
+      limitAddDialog.classList.remove("is-closing");
+      limitAddDialog.close();
+      syncModalScrollLock();
+      callback?.();
+    };
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      finish();
+      return;
+    }
+    limitAddDialog.classList.add("is-closing");
+    window.setTimeout(finish, 170);
+  }
+
+  function refreshAfterTodayAdd() {
+    saveState();
+    render();
+    if (termDialog.open && detailStack.length) {
+      renderDetailView(detailStack.at(-1), { restoreScroll: true });
+    }
+  }
+
+  function commitTodayAdd(mode, options = {}) {
+    if (!pendingTodayAdd) return;
+    const pending = pendingTodayAdd;
+    const { id, term, oldNewIds, oldManualOverflowIds, displacedId } = pending;
+    const overflow = mode === "overflow";
+    const beforeDeferred = [...(state.deferredNew || [])];
+    if (options.forced) {
+      state.session.newIds = uniqueIds([id, ...oldNewIds]);
+    } else if (overflow) {
+      state.session.newIds = uniqueIds([id, ...oldNewIds]);
+      state.session.manualOverflowIds = uniqueIds([...(state.session.manualOverflowIds || []), id]);
+    } else {
+      if (!displacedId) return;
+      state.session.newIds = uniqueIds([id, ...oldNewIds.filter((item) => item !== displacedId)]);
+      state.session.manualOverflowIds = uniqueIds(state.session.manualOverflowIds || [])
+        .filter((item) => item !== displacedId);
+      if (!state.deferredNew.some((item) => Number(item.id) === displacedId)) {
+        state.deferredNew.push({ id: displacedId, due: addDays(dateKey(), 1), reason: `为 ${term.en} 顺延` });
+      }
+    }
+    state.deferredNew = (state.deferredNew || []).filter((item) => Number(item.id) !== id);
+    pendingTodayAdd = null;
+    const displacedTerm = displacedId ? termById.get(displacedId) : null;
+    const message = overflow
+      ? `${term.en} 已加入今日词单${options.forced ? "" : "，本次超额 1 个"}`
+      : `${term.en} 已加入，${displacedTerm?.en || "最后一位词"} 已顺延到明天`;
+    closeLimitAddDialog(() => {
+      refreshAfterTodayAdd();
+      toast(message, {
+        duration: 5200,
+        actionLabel: "撤销",
+        onAction: () => {
+          state.session.newIds = oldNewIds;
+          state.session.manualOverflowIds = oldManualOverflowIds;
+          state.deferredNew = beforeDeferred;
+          saveState();
+          render();
+          if (termDialog.open && detailStack.length) renderDetailView(detailStack.at(-1), { restoreScroll: true });
+          toast("已撤销，今日词单恢复原样");
+        },
+      });
     });
   }
 
@@ -1367,8 +2202,11 @@
     ui.revealed = false;
     ui.hideNewAnswer = false;
     saveState();
-    navigate("today");
-    toast(`已加入 ${dueIds.length} 个到期复习词`);
+    const limitedDueIds = state.settings.sessionLimit > 0
+      ? dueIds.slice(0, state.settings.sessionLimit)
+      : dueIds;
+    startFocusSession({ ids: limitedDueIds });
+    toast(`已进入到期复习：本轮 ${limitedDueIds.length} 张`);
   }
 
   function renderFlashcard(term, queue) {
@@ -1913,7 +2751,12 @@
           <div>
             <span class="eyebrow">EBBINGHAUS · ACTIVE RECALL</span>
             <h2>按遗忘速度安排复习，<br>而不是每天平均重复</h2>
-            <p>采用艾宾浩斯式复习节奏：前期在同一天快速巩固，随后拉开到 1、2、4、7、15、30 天。</p>
+            <p>每天开始新词前，系统先插入到期复习；答题结果再决定下一次间隔。复习不会平均摊到每天。</p>
+          </div>
+          <div class="intro-actions">
+            <button class="button button-primary" type="button" data-action="start-due-review" ${stats.due ? "" : "disabled"}>先复习到期词 ${stats.due}</button>
+            <button class="button" type="button" data-action="open-focus-setup">配置并开始背诵</button>
+            <button class="button button-ghost" type="button" data-action="open-guide">查看使用教程</button>
           </div>
         </div>
 
@@ -1970,13 +2813,27 @@
               </div>
             </section>
 
+            <section class="side-card backup-card" id="progress-transfer">
+              <div class="side-card-head"><h3>跨设备学习档案</h3><span class="tag">JSON</span></div>
+              <p>导出后可在手机、平板或另一台电脑导入，学习阶段、到期时间、联想笔记和外观设置都会恢复。</p>
+              <div class="backup-summary">
+                <span><strong>${stats.touched}</strong> 已学词条</span>
+                <span><strong>${stats.due}</strong> 当前到期</span>
+              </div>
+              <div class="backup-actions">
+                <button class="button button-primary" type="button" data-action="export">下载 JSON 备份</button>
+                <button class="button" type="button" data-action="import">导入 JSON 文件</button>
+              </div>
+              <small>导入会覆盖当前设备进度，建议先导出一次备份。</small>
+            </section>
+
             <section class="side-card" id="learning-settings">
               <div class="side-card-head"><h3>学习设置</h3><span class="tag">SETTINGS</span></div>
               <div class="settings-panel">
                 <button class="settings-appearance-entry" type="button" data-action="open-appearance">
                   <span>
                     <strong>外观与配色</strong>
-                    <small>${escapeHtml(APPEARANCE_PALETTES[state.settings.palette]?.name || "深海蓝图")} · ${state.settings.theme === "dark" ? "深色" : "浅色"} · ${GLASS_LABELS[state.settings.glass] || GLASS_LABELS.off}</small>
+                    <small>${escapeHtml(APPEARANCE_PALETTES[state.settings.palette]?.name || "深海蓝图")} · ${state.settings.theme === "dark" ? "深色" : "浅色"} · ${state.settings.liquidGlass ? "液态玻璃" : (GLASS_LABELS[state.settings.glass] || GLASS_LABELS.off)}</small>
                   </span>
                   <span aria-hidden="true">调整 →</span>
                 </button>
@@ -1984,6 +2841,12 @@
                   <div><strong>每天新词上限</strong><small>到期复习会计入总任务，不占用此上限。</small></div>
                   <select id="new-limit-select" aria-label="每天新词上限">
                     ${[5, 10, 15, 20].map((count) => `<option value="${count}" ${state.settings.newLimit === count ? "selected" : ""}>${count} 词 / 天</option>`).join("")}
+                  </select>
+                </div>
+                <div class="setting-row">
+                  <div><strong>单次背诵总量</strong><small>到期复习优先占用名额，再补入新词；也可以选择“全部”。</small></div>
+                  <select id="session-limit-select" aria-label="单次背诵总量">
+                    ${[10, 20, 30, 50, 0].map((count) => `<option value="${count}" ${state.settings.sessionLimit === count ? "selected" : ""}>${count ? `${count} 张 / 次` : "全部剩余"}</option>`).join("")}
                   </select>
                 </div>
                 <div class="setting-row">
@@ -2034,7 +2897,134 @@
     refreshSpeechVoices();
   }
 
+  function wordLookupMarkup(wordEn) {
+    const info = wordByEn.get(wordEn);
+    if (!info) return "";
+    const examples = terms
+      .filter((term) => {
+        const words = term.en.replace(/[()]/g, " ").split(/\s+/);
+        return words.some((word) => word.toLowerCase() === wordEn.toLowerCase());
+      })
+      .slice(0, 8);
+    return `
+      <header class="word-lookup-card-head">
+        <span class="eyebrow">QUICK WORD · 网页内查词</span>
+        <button class="word-lookup-card-close" type="button" data-action="close-word-card" aria-label="收起查词卡片">×</button>
+      </header>
+      <div class="word-lookup-title">
+        <div>
+          <h2>${escapeHtml(info.en)}</h2>
+          <p>${escapeHtml(info.zh)}</p>
+        </div>
+        ${speakButtonMarkup(info.en, true)}
+      </div>
+      <div class="word-lookup-note">
+        <span>怎么理解</span>
+        <p>${escapeHtml(info.note)}</p>
+      </div>
+      <section class="word-lookup-examples">
+        <h3>出现在这些节点里</h3>
+        <div class="term-link-list">
+          ${examples.map((term) => `<button class="term-link" type="button" data-term-id="${term.id}">${escapeHtml(term.en)}</button>`).join("") || "<span>暂无词条示例</span>"}
+        </div>
+      </section>
+      <footer class="word-lookup-card-actions">
+        <button class="button button-ghost" type="button" data-action="close-word-card">收起卡片</button>
+        <button class="button" type="button" data-word-search="${escapeHtml(info.en)}">在词典中搜索</button>
+        <a class="button" href="${escapeHtml(youdaoWordUrl(info.en))}" target="_blank" rel="noopener noreferrer">有道词典 ↗</a>
+      </footer>
+    `;
+  }
+
+  function showWordLookupCard(wordEn) {
+    if (!wordByEn.has(wordEn)) return false;
+    const card = termDialog.open ? inlineWordLookupCard : floatingWordLookupCard;
+    if (!card) return false;
+    window.clearTimeout(wordLookupCloseTimer);
+    inlineWordLookupCard.hidden = termDialog.open ? false : true;
+    floatingWordLookupCard.hidden = termDialog.open ? true : false;
+    card.innerHTML = wordLookupMarkup(wordEn);
+    card.classList.remove("is-closing", "is-open");
+    card.hidden = false;
+    if (card === inlineWordLookupCard) termDialog.classList.add("has-word-card");
+    else document.documentElement.classList.add("word-card-visible");
+    requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add("is-open")));
+    return true;
+  }
+
+  function closeWordLookupCard(immediate = false) {
+    const cards = [inlineWordLookupCard, floatingWordLookupCard].filter((card) => card && !card.hidden);
+    const finish = () => {
+      cards.forEach((card) => {
+        card.hidden = true;
+        card.classList.remove("is-open", "is-closing");
+        card.replaceChildren();
+      });
+      termDialog.classList.remove("has-word-card");
+      document.documentElement.classList.remove("word-card-visible");
+    };
+    window.clearTimeout(wordLookupCloseTimer);
+    if (!cards.length || immediate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      finish();
+      return;
+    }
+    cards.forEach((card) => {
+      card.classList.remove("is-open");
+      card.classList.add("is-closing");
+    });
+    wordLookupCloseTimer = window.setTimeout(finish, 240);
+  }
+
+  function pushDetailView(view) {
+    if (!termDialog.open) detailStack.length = 0;
+    const previous = detailStack.at(-1);
+    if (previous?.type === view.type && previous?.key === view.key) return;
+    if (previous && termDialog.open) {
+      const shell = termDialog.querySelector(".term-dialog-shell");
+      previous.viewState = {
+        scrollTop: shell?.scrollTop || 0,
+        openDetails: shell
+          ? [...shell.querySelectorAll("details")].map((item) => item.open)
+          : [],
+      };
+    }
+    detailStack.push(view);
+    renderDetailView(view);
+    if (!termDialog.open) termDialog.showModal();
+    syncModalScrollLock();
+  }
+
+  function renderDetailView(view, options = {}) {
+    if (view.type === "word") renderWordDetail(view.key);
+    else renderTermDetail(view.key);
+    const closeButton = document.getElementById("term-dialog-close");
+    if (closeButton) closeButton.setAttribute("aria-label", detailStack.length > 1 ? "返回上一页" : "关闭词条详情");
+    const shell = termDialog.querySelector(".term-dialog-shell");
+    if (shell) {
+      const scrollTop = options.restoreScroll ? (view.viewState?.scrollTop || 0) : 0;
+      requestAnimationFrame(() => {
+        shell.scrollTop = scrollTop;
+        const states = view.viewState?.openDetails || [];
+        [...shell.querySelectorAll("details")].forEach((item, index) => {
+          if (states[index]) item.open = true;
+        });
+      });
+    }
+  }
+
+  function detailBackLabel() {
+    const view = detailStack.at(-1);
+    if (!view) return "";
+    if (view.type === "word") return view.key;
+    const term = termById.get(Number(view.key));
+    return term?.en || "上一页";
+  }
+
   function openWord(wordEn) {
+    showWordLookupCard(wordEn);
+  }
+
+  function renderWordDetail(wordEn) {
     const info = wordByEn.get(wordEn);
     if (!info) return;
     const examples = terms
@@ -2044,6 +3034,7 @@
       })
       .slice(0, 10);
     termDialogContent.innerHTML = `
+      ${detailStack.length > 1 ? `<button class="detail-back" type="button" data-action="close-dialog">← 返回${escapeHtml(detailStack.at(-2)?.type === "term" ? (termById.get(Number(detailStack.at(-2)?.key))?.en || "词条") : "上一页")}</button>` : ""}
       <header class="term-detail-head">
         <div class="flashcard-meta">
           <span class="tag learning">词组组成</span>
@@ -2070,13 +3061,19 @@
       <div class="detail-actions">
         <button class="button button-primary" type="button" data-word-search="${escapeHtml(info.en)}">在词典中搜索 ${escapeHtml(info.en)}</button>
         <a class="button" href="${escapeHtml(youdaoWordUrl(info.en))}" target="_blank" rel="noopener noreferrer">打开有道词典</a>
-        <button class="button" type="button" data-action="close-dialog">关闭</button>
+        ${ui.route === "study" ? `<button class="button" type="button" data-action="return-focus">返回专注背诵</button>` : ""}
+        <button class="button" type="button" data-action="close-dialog">${detailStack.length > 1 ? "返回词条详情" : "关闭"}</button>
       </div>
     `;
     if (!termDialog.open) termDialog.showModal();
   }
 
   function openTerm(termId) {
+    closeWordLookupCard(true);
+    pushDetailView({ type: "term", key: Number(termId) });
+  }
+
+  function renderTermDetail(termId) {
     const term = termById.get(Number(termId));
     if (!term) return;
     const status = termStatus(term);
@@ -2087,6 +3084,7 @@
     const scenarios = scenarioLinks(term);
     ui.termId = term.id;
     termDialogContent.innerHTML = `
+      ${detailStack.length > 1 ? `<button class="detail-back" type="button" data-action="close-dialog">← 返回${escapeHtml(detailStack.at(-2)?.type === "word" ? detailStack.at(-2)?.key : (termById.get(Number(detailStack.at(-2)?.key))?.en || "上一页"))}</button>` : ""}
       <header class="term-detail-head">
         <div class="flashcard-meta">
           <span class="tag ${status.key}">${status.label}</span>
@@ -2149,26 +3147,54 @@
       <div class="detail-actions">
         <button class="button button-primary" type="button" data-add-today="${term.id}" ${todayAction.disabled ? "disabled" : ""}>${escapeHtml(todayAction.label)}</button>
         <a class="button" href="${escapeHtml(youdaoWordUrl(term.en))}" target="_blank" rel="noopener noreferrer">到有道词典查看</a>
-        <button class="button" type="button" data-action="close-and-study">返回今日学习</button>
-        <button class="button" type="button" data-action="close-dialog">关闭</button>
+        <button class="button" type="button" data-action="${ui.route === "study" ? "return-focus" : "close-and-study"}">${ui.route === "study" ? "返回专注背诵" : "返回今日学习"}</button>
+        <button class="button" type="button" data-action="close-dialog">${detailStack.length > 1 ? "返回上一页" : "关闭"}</button>
       </div>
     `;
     if (!termDialog.open) termDialog.showModal();
   }
 
   function closeTermDialog() {
-    if (termDialog.open) termDialog.close();
+    if (!termDialog.open) return;
+    closeWordLookupCard(true);
+    detailStack.pop();
+    if (detailStack.length) {
+      renderDetailView(detailStack.at(-1), { restoreScroll: true });
+      return;
+    }
+    termDialog.close();
+    syncModalScrollLock();
   }
 
-  function navigate(route) {
+  function closeAllTermDialogs() {
+    closeWordLookupCard(true);
+    detailStack.length = 0;
+    if (termDialog.open) termDialog.close();
+    syncModalScrollLock();
+  }
+
+  function resetPageScroll() {
+    const root = document.documentElement;
+    const previous = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+    window.setTimeout(() => {
+      if (previous) root.style.scrollBehavior = previous;
+      else root.style.removeProperty("scroll-behavior");
+    }, 60);
+  }
+
+  function navigate(route, options = {}) {
     if (!pageMeta[route]) route = "today";
+    closeWordLookupCard(true);
     ui.route = route;
     ui.revealed = false;
     if (location.hash !== `#${route}`) history.replaceState(null, "", `#${route}`);
     render();
     sidebar.classList.remove("open");
     mobileMenu.setAttribute("aria-expanded", "false");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (options.scroll !== false) resetPageScroll();
   }
 
   function toast(message, options = {}) {
@@ -2197,52 +3223,102 @@
   }
 
   function exportProgress() {
+    const stats = getStats();
     const payload = {
+      format: "blueprint-memory-lab-progress",
+      schemaVersion: 3,
+      appVersion: APP_VERSION,
       exportedAt: new Date().toISOString(),
-      version: state.version,
+      summary: {
+        learnedTerms: stats.touched,
+        dueTerms: stats.due,
+        longTermMemory: stats.mastered,
+        streakDays: stats.streak,
+      },
       state,
     };
     const filename = `blueprint-memory-${dateKey()}.json`;
+    const text = JSON.stringify(payload, null, 2);
     if (window.AndroidBridge?.saveTextFile) {
-      window.AndroidBridge.saveTextFile(filename, JSON.stringify(payload, null, 2));
+      window.AndroidBridge.saveTextFile(filename, text);
       toast("学习进度已保存到“下载”文件夹");
       return;
     }
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(link.href);
-    toast("学习进度已导出");
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    toast(`学习进度已导出：${stats.touched} 个已学词条`);
   }
 
   function handleImport(file) {
     if (!file) return;
+    if (file.size > MAX_IMPORT_BYTES) {
+      toast("导入失败：备份文件超过 5 MB");
+      return;
+    }
     const reader = new FileReader();
+    reader.onerror = () => toast("导入失败：无法读取这个文件");
     reader.onload = () => {
       try {
         const imported = JSON.parse(String(reader.result));
         const nextState = imported.state || imported;
-        if (!nextState.progress || typeof nextState.progress !== "object") throw new Error("文件缺少 progress");
-        if (!confirm("导入后会用文件中的学习进度覆盖当前进度，继续吗？")) return;
+        if (!nextState || typeof nextState !== "object") throw new Error("文件内容不是有效的学习进度");
+        if (!nextState.progress || typeof nextState.progress !== "object" || Array.isArray(nextState.progress)) {
+          throw new Error("文件缺少有效的 progress 学习记录");
+        }
+        const importedCount = Object.keys(nextState.progress).length;
+        const exportTime = imported.exportedAt ? new Date(imported.exportedAt) : null;
+        const timeCopy = exportTime && !Number.isNaN(exportTime.getTime())
+          ? `（导出于 ${new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(exportTime)}）`
+          : "";
+        if (!confirm(`将导入 ${importedCount} 个词条的学习进度${timeCopy}。\n\n导入后会覆盖当前设备的学习进度和设置，建议先导出当前进度备份。继续吗？`)) return;
+        closeAllTermDialogs();
         state = {
           ...structuredClone(defaultState),
           ...nextState,
           settings: { ...defaultState.settings, ...(nextState.settings || {}) },
-          progress: nextState.progress || {},
+          progress: normalizeProgressMap(nextState.progress),
           activityDays: Array.isArray(nextState.activityDays) ? nextState.activityDays : [],
+          memoryNotes: nextState.memoryNotes && typeof nextState.memoryNotes === "object" ? nextState.memoryNotes : {},
+          deferredNew: Array.isArray(nextState.deferredNew) ? nextState.deferredNew : [],
           session: null,
+          version: 2,
         };
         if (!APPEARANCE_PALETTES[state.settings.palette]) state.settings.palette = "blueprint";
-        if (!GLASS_MODES.has(state.settings.glass)) state.settings.glass = "off";
+        normalizeLiquidSettings(state.settings);
         state.settings.customSidebar = normalizeAccent(state.settings.customSidebar, "#0c2437");
         state.settings.customAccent = normalizeAccent(state.settings.customAccent);
+        state.settings.newLimit = [5, 10, 15, 20].includes(Number(state.settings.newLimit))
+          ? Number(state.settings.newLimit)
+          : defaultState.settings.newLimit;
+        state.settings.sessionLimit = [10, 20, 30, 50, 0].includes(Number(state.settings.sessionLimit))
+          ? Number(state.settings.sessionLimit)
+          : 20;
+        state.settings.studyModes = Array.isArray(state.settings.studyModes)
+          ? [...new Set(state.settings.studyModes.filter((mode) => ["meaning", "usage", "phrase"].includes(mode)))]
+          : [...defaultState.settings.studyModes];
+        if (!state.settings.studyModes.length) state.settings.studyModes = [...defaultState.settings.studyModes];
+        state.settings.speechRate = Math.min(1.5, Math.max(0.5, Number(state.settings.speechRate) || 1));
+        ui.study = {
+          phase: "setup",
+          taughtId: null,
+          feedback: null,
+          question: null,
+          selectedIndex: null,
+        };
+        ui.revealed = false;
+        ui.hideNewAnswer = false;
         ensureSession();
         applyTheme();
         saveState();
         render();
-        toast("学习进度已导入");
+        toast(`学习进度已导入：${Object.keys(state.progress).length} 个已学词条`);
       } catch (error) {
         toast(`导入失败：${error.message}`);
       }
@@ -2263,32 +3339,84 @@
   }
 
   function handleClick(event) {
+    const guideAction = event.target.closest("[data-guide-action]")?.dataset.guideAction;
+    if (guideAction) {
+      if (guideAction === "next") {
+        if (ui.guide.step >= GUIDE_STEPS.length - 1) finishGuide(true);
+        else syncGuideStep(ui.guide.step + 1);
+      } else if (guideAction === "prev") {
+        syncGuideStep(ui.guide.step - 1);
+      } else if (guideAction === "skip") {
+        finishGuide(false);
+      }
+      return;
+    }
     const paletteButton = event.target.closest("button[data-palette]");
     if (paletteButton) {
       const palette = paletteButton.dataset.palette;
       if (!APPEARANCE_PALETTES[palette]) return;
-      state.settings.palette = palette;
-      applyTheme();
-      saveState();
+      runAppearanceChange(() => {
+        state.settings.palette = palette;
+      });
       toast(`配色已切换为${APPEARANCE_PALETTES[palette].name}`, { replace: true });
       return;
     }
 
     const appearanceThemeButton = event.target.closest("[data-appearance-theme]");
     if (appearanceThemeButton) {
-      state.settings.theme = appearanceThemeButton.dataset.appearanceTheme === "dark" ? "dark" : "light";
-      applyTheme();
-      saveState();
+      runAppearanceChange(() => {
+        state.settings.theme = appearanceThemeButton.dataset.appearanceTheme === "dark" ? "dark" : "light";
+      });
       return;
     }
 
     const appearanceGlassButton = event.target.closest("[data-appearance-glass]");
     if (appearanceGlassButton) {
-      state.settings.glass = GLASS_MODES.has(appearanceGlassButton.dataset.appearanceGlass)
-        ? appearanceGlassButton.dataset.appearanceGlass
-        : "off";
-      applyTheme();
-      saveState();
+      runAppearanceChange(() => {
+        state.settings.glass = GLASS_MODES.has(appearanceGlassButton.dataset.appearanceGlass)
+          ? appearanceGlassButton.dataset.appearanceGlass
+          : "off";
+        if (state.settings.glass !== "off") state.settings.liquidGlass = false;
+      });
+      return;
+    }
+
+    const liquidToggleButton = event.target.closest("button[data-liquid-toggle]");
+    if (liquidToggleButton) {
+      runAppearanceChange(() => {
+        state.settings.liquidGlass = !state.settings.liquidGlass;
+        if (state.settings.liquidGlass) state.settings.glass = "off";
+      });
+      return;
+    }
+
+    const liquidDepthButton = event.target.closest("button[data-liquid-depth]");
+    if (liquidDepthButton && state.settings.liquidGlass) {
+      runAppearanceChange(() => {
+        state.settings.liquidDepth = LIQUID_DEPTHS.has(liquidDepthButton.dataset.liquidDepth)
+          ? liquidDepthButton.dataset.liquidDepth
+          : "balanced";
+      });
+      return;
+    }
+
+    const liquidFlowButton = event.target.closest("button[data-liquid-flow]");
+    if (liquidFlowButton && state.settings.liquidGlass) {
+      runAppearanceChange(() => {
+        state.settings.liquidFlow = LIQUID_FLOWS.has(liquidFlowButton.dataset.liquidFlow)
+          ? liquidFlowButton.dataset.liquidFlow
+          : "gentle";
+      });
+      return;
+    }
+
+    const liquidGlossButton = event.target.closest("button[data-liquid-gloss]");
+    if (liquidGlossButton && state.settings.liquidGlass) {
+      runAppearanceChange(() => {
+        state.settings.liquidGloss = LIQUID_GLOSSES.has(liquidGlossButton.dataset.liquidGloss)
+          ? liquidGlossButton.dataset.liquidGloss
+          : "soft";
+      });
       return;
     }
 
@@ -2323,6 +3451,7 @@
     const termButton = event.target.closest("[data-term-id]");
     if (termButton) {
       event.preventDefault();
+      if (termButton.closest(".word-lookup-card")) closeWordLookupCard(true);
       openTerm(termButton.dataset.termId);
       return;
     }
@@ -2337,7 +3466,7 @@
     const scenarioLink = event.target.closest("[data-open-scenario]");
     if (scenarioLink) {
       ui.scenarioId = scenarioLink.dataset.openScenario;
-      closeTermDialog();
+      closeAllTermDialogs();
       navigate("scenarios");
       return;
     }
@@ -2372,7 +3501,7 @@
 
     const wordSearchButton = event.target.closest("[data-word-search]");
     if (wordSearchButton) {
-      closeTermDialog();
+      closeAllTermDialogs();
       ui.library.query = wordSearchButton.dataset.wordSearch;
       ui.library.category = "all";
       ui.library.status = "all";
@@ -2409,9 +3538,80 @@
       return;
     }
 
+    const studyLimitButton = event.target.closest("button[data-study-limit]");
+    if (studyLimitButton) {
+      state.settings.sessionLimit = Number(studyLimitButton.dataset.studyLimit);
+      saveState();
+      renderStudy();
+      return;
+    }
+
+    const studyModeButton = event.target.closest("button[data-study-mode]");
+    if (studyModeButton) {
+      const mode = studyModeButton.dataset.studyMode;
+      const selected = new Set(state.settings.studyModes);
+      if (selected.has(mode) && selected.size > 1) selected.delete(mode);
+      else selected.add(mode);
+      state.settings.studyModes = [...selected];
+      saveState();
+      renderStudy();
+      return;
+    }
+
+    const studyAnswerButton = event.target.closest("button[data-study-answer]");
+    if (studyAnswerButton) {
+      answerStudyQuestion(studyAnswerButton.dataset.studyAnswer);
+      return;
+    }
+
     const action = event.target.closest("[data-action]")?.dataset.action;
     if (!action) return;
 
+    if (action === "start-focus") {
+      openStudySetup();
+      return;
+    }
+    if (action === "begin-focus" || action === "restart-focus") {
+      startFocusSession();
+      return;
+    }
+    if (action === "open-focus-setup") {
+      openStudySetup();
+      return;
+    }
+    if (action === "exit-study") {
+      exitFocusSession();
+      return;
+    }
+    if (action === "study-next") {
+      advanceStudyQueue();
+      return;
+    }
+    if (action === "study-overview-next") {
+      advanceStudyOverview();
+      return;
+    }
+    if (action === "open-guide") {
+      openGuideDialog();
+      return;
+    }
+    if (action === "close-word-card") {
+      closeWordLookupCard();
+      return;
+    }
+    if (action === "limit-add-over") {
+      commitTodayAdd("overflow");
+      return;
+    }
+    if (action === "limit-add-replace") {
+      commitTodayAdd("replace");
+      return;
+    }
+    if (action === "limit-add-cancel") {
+      pendingTodayAdd = null;
+      closeLimitAddDialog();
+      return;
+    }
     if (action === "reveal") {
       ui.revealed = true;
       ui.hideNewAnswer = false;
@@ -2440,8 +3640,18 @@
     if (action === "open-appearance") openAppearanceDialog();
     if (action === "close-dialog") closeTermDialog();
     if (action === "close-and-study") {
-      closeTermDialog();
+      closeAllTermDialogs();
       navigate("today");
+    }
+    if (action === "return-focus") {
+      closeAllTermDialogs();
+      ui.route = "study";
+      if (!state.session.focusActive) {
+        state.session.focusActive = true;
+        state.session.focusIds = uniqueIds(state.session.currentId ? [state.session.currentId] : getSessionPlan().ids);
+      }
+      navigate("study", { scroll: false });
+      resetPageScroll();
     }
 
     const ratingButton = event.target.closest("[data-rating]");
@@ -2485,16 +3695,16 @@
 
   function handleChange(event) {
     if (event.target.id === "custom-accent") {
-      state.settings.customAccent = normalizeAccent(event.target.value);
-      state.settings.palette = "custom";
-      applyTheme();
-      saveState();
+      runAppearanceChange(() => {
+        state.settings.customAccent = normalizeAccent(event.target.value);
+        state.settings.palette = "custom";
+      });
     }
     if (event.target.id === "custom-sidebar") {
-      state.settings.customSidebar = normalizeAccent(event.target.value, "#0c2437");
-      state.settings.palette = "custom";
-      applyTheme();
-      saveState();
+      runAppearanceChange(() => {
+        state.settings.customSidebar = normalizeAccent(event.target.value, "#0c2437");
+        state.settings.palette = "custom";
+      });
     }
     if (event.target.id === "library-category") {
       ui.library.category = event.target.value;
@@ -2555,6 +3765,12 @@
       render();
       toast(`每天新词上限已改为 ${state.settings.newLimit}`);
     }
+    if (event.target.id === "session-limit-select") {
+      state.settings.sessionLimit = Number(event.target.value);
+      saveState();
+      renderMemory();
+      toast(`本次背诵总量已改为 ${state.settings.sessionLimit || "全部"}`);
+    }
   }
 
   document.addEventListener("click", (event) => {
@@ -2589,6 +3805,11 @@
   termDialog.addEventListener("click", (event) => {
     if (event.target === termDialog) closeTermDialog();
   });
+  termDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    if (inlineWordLookupCard && !inlineWordLookupCard.hidden) closeWordLookupCard();
+    else closeTermDialog();
+  });
 
   themeToggle.addEventListener("click", openAppearanceDialog);
   document.getElementById("appearance-quick").addEventListener("click", openAppearanceDialog);
@@ -2597,14 +3818,54 @@
     if (event.target === appearanceDialog) closeAppearanceDialog();
   });
   document.getElementById("appearance-reset").addEventListener("click", () => {
-    state.settings.theme = defaultState.settings.theme;
-    state.settings.palette = defaultState.settings.palette;
-    state.settings.glass = defaultState.settings.glass;
-    state.settings.customSidebar = defaultState.settings.customSidebar;
-    state.settings.customAccent = defaultState.settings.customAccent;
-    applyTheme();
-    saveState();
+    runAppearanceChange(() => {
+      state.settings.theme = defaultState.settings.theme;
+      state.settings.palette = defaultState.settings.palette;
+      state.settings.glass = defaultState.settings.glass;
+      state.settings.liquidGlass = defaultState.settings.liquidGlass;
+      state.settings.liquidDepth = defaultState.settings.liquidDepth;
+      state.settings.liquidFlow = defaultState.settings.liquidFlow;
+      state.settings.liquidGloss = defaultState.settings.liquidGloss;
+      state.settings.customSidebar = defaultState.settings.customSidebar;
+      state.settings.customAccent = defaultState.settings.customAccent;
+    });
     toast("已恢复默认外观", { replace: true });
+  });
+
+  document.getElementById("open-guide")?.addEventListener("click", openGuideDialog);
+  document.getElementById("guide-quick")?.addEventListener("click", openGuideDialog);
+  document.getElementById("guide-dialog-close")?.addEventListener("click", () => finishGuide(false));
+  guideDialog?.addEventListener("click", (event) => {
+    if (event.target === guideDialog) finishGuide(false);
+    const stepButton = event.target.closest("[data-guide-step]");
+    if (stepButton) syncGuideStep(stepButton.dataset.guideStep);
+    if (event.target.closest("[data-guide-prev]")) syncGuideStep(ui.guide.step - 1);
+    if (event.target.closest("[data-guide-next]")) {
+      if (ui.guide.step >= GUIDE_STEPS.length - 1) finishGuide(true);
+      else syncGuideStep(ui.guide.step + 1);
+    }
+  });
+  guideDialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    finishGuide(false);
+  });
+  appearanceDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeAppearanceDialog();
+  });
+  limitAddDialog?.addEventListener("click", (event) => {
+    if (event.target === limitAddDialog) {
+      pendingTodayAdd = null;
+      closeLimitAddDialog();
+    }
+  });
+  limitAddDialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    pendingTodayAdd = null;
+    closeLimitAddDialog();
+  });
+  [appearanceDialog, guideDialog, limitAddDialog, termDialog].forEach((dialog) => {
+    dialog?.addEventListener("close", syncModalScrollLock);
   });
 
   mobileMenu.addEventListener("click", () => {
@@ -2637,11 +3898,35 @@
     if (pageMeta[route] && route !== ui.route) {
       ui.route = route;
       render();
+      resetPageScroll();
     }
   });
 
   document.addEventListener("keydown", (event) => {
-    if (termDialog.open) return;
+    if (event.key === "Escape" && floatingWordLookupCard && !floatingWordLookupCard.hidden) {
+      event.preventDefault();
+      closeWordLookupCard();
+      return;
+    }
+    if (termDialog.open || guideDialog?.open || appearanceDialog?.open) return;
+    if (ui.route === "study") {
+      const key = String(event.key || "").toUpperCase();
+      if (ui.study.phase === "question" && /^[A-D]$/.test(key)) {
+        event.preventDefault();
+        answerStudyQuestion(key.charCodeAt(0) - 65);
+        return;
+      }
+      if (event.key === "Enter") {
+        if (state.session.focusPhase === "overview") {
+          event.preventDefault();
+          advanceStudyOverview();
+        } else if (ui.study.phase === "feedback") {
+          event.preventDefault();
+          advanceStudyQueue();
+        }
+      }
+      return;
+    }
     if (ui.route !== "today") return;
     if (event.key === " ") {
       event.preventDefault();
@@ -2676,4 +3961,11 @@
     }
   }, 30000);
   render();
+  if (!state.settings.guideSeen && ui.route === "today") {
+    window.setTimeout(() => {
+      if (!state.settings.guideSeen && ui.route === "today" && !termDialog.open && !appearanceDialog.open) {
+        openGuideDialog();
+      }
+    }, 520);
+  }
 })();

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="UE5 Blueprint 中英词汇、场景逻辑与间隔复习学习网站">
+  <title>Blueprint Memory Lab · UE5 蓝图记忆舱</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <a class="brand" href="#today" data-route="today" aria-label="返回今日学习">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 44 44" role="img">
+            <path d="M7 13h10l5 9h10M7 31h10l5-9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <circle cx="7" cy="13" r="3.2" fill="currentColor"/>
+            <circle cx="7" cy="31" r="3.2" fill="currentColor"/>
+            <circle cx="32" cy="22" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/>
+          </svg>
+        </span>
+        <span>
+          <strong>Blueprint</strong>
+          <small>MEMORY LAB</small>
+        </span>
+      </a>
+
+      <nav class="primary-nav">
+        <button class="nav-item active" type="button" data-route="today">
+          <span class="nav-index">01</span>
+          <span><strong>今日学习</strong><small>新词与到期复习</small></span>
+        </button>
+        <button class="nav-item" type="button" data-route="wordlist">
+          <span class="nav-index">02</span>
+          <span><strong>今日词单</strong><small>今天的词与基础释义</small></span>
+        </button>
+        <button class="nav-item" type="button" data-route="learned">
+          <span class="nav-index">03</span>
+          <span><strong>已学与复习</strong><small>记忆档案和到期复习</small></span>
+        </button>
+        <button class="nav-item" type="button" data-route="library">
+          <span class="nav-index">04</span>
+          <span><strong>词典搜索</strong><small>中英双向查全部词条</small></span>
+        </button>
+        <button class="nav-item" type="button" data-route="scenarios">
+          <span class="nav-index">05</span>
+          <span><strong>场景串联</strong><small>节点因果与功能扩展</small></span>
+        </button>
+        <button class="nav-item" type="button" data-route="tutorials">
+          <span class="nav-index">06</span>
+          <span><strong>教程查询</strong><small>Epic 官方资料与跳转</small></span>
+        </button>
+        <button class="nav-item" type="button" data-route="memory">
+          <span class="nav-index">07</span>
+          <span><strong>记忆路线</strong><small>间隔算法和学习设置</small></span>
+        </button>
+      </nav>
+
+      <div class="sidebar-note">
+        <span class="overline">TODAY'S FOCUS</span>
+        <strong id="sidebar-focus">先理解，再记忆</strong>
+        <p id="sidebar-queue-copy">加载今日队列中…</p>
+        <div class="mini-progress" aria-hidden="true"><span id="sidebar-progress-bar"></span></div>
+      </div>
+
+      <div class="sidebar-actions">
+        <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="切换深色模式">
+          <span class="theme-icon" aria-hidden="true"></span>
+          <span id="theme-label">深色</span>
+        </button>
+        <button class="icon-button" id="open-settings" type="button">
+          <span class="settings-icon" aria-hidden="true"></span>
+          <span>学习设置</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-title">
+          <button class="mobile-menu" id="mobile-menu" type="button" aria-label="打开导航" aria-expanded="false">
+            <span></span><span></span>
+          </button>
+          <div>
+            <span class="overline" id="page-kicker">TODAY · 2026-10-26</span>
+            <h1 id="page-title">今日学习</h1>
+          </div>
+        </div>
+        <div class="topbar-metrics">
+          <div class="top-stat">
+            <span>连续学习</span>
+            <strong><span id="top-streak">0</span> 天</strong>
+          </div>
+          <div class="top-stat">
+            <span>长期记忆</span>
+            <strong><span id="top-mastered">0</span> 词</strong>
+          </div>
+          <button class="avatar-button" type="button" aria-label="学习设置">BP</button>
+        </div>
+      </header>
+
+      <main id="view-root" class="view-root" aria-live="polite"></main>
+      <footer class="site-footer">
+        <span>Blueprint Memory Lab</span>
+        <span>本地记忆 · 不需要登录 · 进度只保存在当前浏览器</span>
+      </footer>
+    </div>
+  </div>
+
+  <nav class="mobile-nav" aria-label="移动端主导航">
+    <button class="mobile-nav-item active" type="button" data-route="today"><span>01</span>今日</button>
+    <button class="mobile-nav-item" type="button" data-route="wordlist"><span>02</span>词单</button>
+    <button class="mobile-nav-item" type="button" data-route="learned"><span>03</span>已学</button>
+    <button class="mobile-nav-item" type="button" data-route="library"><span>04</span>词典</button>
+    <button class="mobile-nav-item" type="button" data-route="scenarios"><span>05</span>场景</button>
+    <button class="mobile-nav-item" type="button" data-route="tutorials"><span>06</span>教程</button>
+    <button class="mobile-nav-item" type="button" data-route="memory"><span>07</span>路线</button>
+  </nav>
+
+  <dialog class="term-dialog" id="term-dialog" aria-labelledby="term-dialog-title">
+    <div class="term-dialog-shell">
+      <button class="dialog-close" id="term-dialog-close" type="button" aria-label="关闭词条详情">×</button>
+      <div id="term-dialog-content"></div>
+    </div>
+  </dialog>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

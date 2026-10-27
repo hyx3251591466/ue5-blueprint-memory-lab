@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#141a20">
+  <title>下载 Blueprint 学习台 Demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2f0ea;
+      --surface: #fffdf8;
+      --ink: #171a1d;
+      --muted: #666a65;
+      --line: #d7d2c7;
+      --accent: #4b50d8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px 18px 50px;
+      background:
+        linear-gradient(rgba(32,38,42,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(32,38,42,.045) 1px, transparent 1px),
+        var(--bg);
+      background-size: 40px 40px;
+      color: var(--ink);
+      font-family: "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    main { width: min(760px, 100%); margin: 0 auto; }
+    .back { color: var(--muted); font-size: 13px; text-decoration: none; }
+    article {
+      margin-top: 20px;
+      padding: clamp(24px, 6vw, 46px);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .label {
+      margin: 0;
+      color: var(--accent);
+      font: 700 11px Consolas, monospace;
+      letter-spacing: .12em;
+    }
+    h1 {
+      margin: 10px 0 12px;
+      font-size: clamp(32px, 8vw, 54px);
+      line-height: 1.08;
+      letter-spacing: -.04em;
+    }
+    p { color: var(--muted); line-height: 1.75; }
+    .actions { display: grid; gap: 10px; margin: 25px 0; }
+    a.button {
+      display: block;
+      padding: 15px 18px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    a.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    a.button strong { display: block; font-size: 16px; }
+    a.button span { display: block; margin-top: 3px; color: inherit; opacity: .75; font-size: 12px; }
+    .facts {
+      padding: 15px;
+      border-left: 3px solid var(--accent);
+      background: #f0effc;
+      color: #42464c;
+      font-size: 13px;
+    }
+    code { overflow-wrap: anywhere; }
+    @media (min-width: 640px) { .actions { grid-template-columns: 1fr 1fr; } .primary { grid-column: 1 / -1; } }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="./">← 返回 Blueprint Memory Lab</a>
+    <article>
+      <p class="label">ANDROID DEMO · DIRECT DOWNLOAD</p>
+      <h1>Blueprint 学习台<br>手机版下载</h1>
+      <p>请优先使用“GitHub Pages 直链”。如果当前网络仍无法下载，再使用 jsDelivr 镜像或 GitHub Release。</p>
+      <div class="actions">
+        <a class="button primary" href="./downloads/Blueprint-Study-Redesign-v1.1.0.apk" download>
+          <strong>直接从 GitHub Pages 下载 APK</strong>
+          <span>推荐 · Android 6.0+ · 独立安装包</span>
+        </a>
+        <a class="button" href="https://cdn.jsdelivr.net/gh/hyx3251591466/ue5-blueprint-memory-lab@demo/release/Blueprint-Study-Redesign-v1.1.0.apk">
+          <strong>jsDelivr 镜像下载</strong>
+          <span>国内网络通常更稳定</span>
+        </a>
+        <a class="button" href="https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/demo-v1.1.0/Blueprint-Study-Redesign-v1.1.0.apk">
+          <strong>GitHub Release 下载</strong>
+          <span>备用下载地址</span>
+        </a>
+        <a class="button" href="./downloads/Blueprint-Study-Redesign-Web-v1.1.0.zip">
+          <strong>下载网页离线 ZIP</strong>
+          <span>解压后打开 index.html</span>
+        </a>
+      </div>
+      <div class="facts">
+        <strong>安装说明</strong><br>
+        文件大小：255,074 字节<br>
+        包名：<code>com.blueprintmemorylab.redesign</code><br>
+        SHA-256：<code>bd81a92a2cf7f343db70f9da50c3b1aff4d9a07953b61dc13e06cdb74f2da5c1</code><br>
+        如果出现“安装未知应用”，请允许当前浏览器或文件管理器安装。
+      </div>
+    </article>
+  </main>
+</body>
+</html>

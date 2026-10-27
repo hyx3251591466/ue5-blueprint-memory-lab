@@ -12,6 +12,14 @@ UE5 Blueprint 中英学习工具，支持艾宾浩斯复习、拆词/联想记�
 - **在线使用**：[打开 GitHub Pages 网页版](https://hyx3251591466.github.io/ue5-blueprint-memory-lab/)
 - **全部发行版**：[GitHub Releases](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases)
 
+## 重设计 Demo
+
+Swiss Style 重构版保存在 `demo` 分支，并提供独立的 Android 演示包。请从专用下载页进入，不要在分支文件列表直接点击 APK 文件。
+
+- **手机下载页**：[打开 Blueprint 学习台 Demo 下载页](https://hyx3251591466.github.io/ue5-blueprint-memory-lab/download-demo.html)
+- **查看源码**：[浏览 demo 分支](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/tree/demo)
+- **Demo Release**：[查看演示版发行文件](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/tag/demo-v1.1.0)
+
 ![Android 手机版预览](screenshots/mobile-preview.png)
 
 ## Android 安装

@@ -2,11 +2,14 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0b2639">
   <meta name="description" content="UE5 Blueprint 中英词汇、场景逻辑与间隔复习学习网站">
   <title>Blueprint Memory Lab · UE5 蓝图记忆舱</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg">
+  <link rel="stylesheet" href="styles.css?v=1.1.0">
 </head>
 <body>
   <div class="app-shell">
@@ -65,9 +68,9 @@
       </div>
 
       <div class="sidebar-actions">
-        <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="切换深色模式">
+        <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="打开外观设置" aria-haspopup="dialog">
           <span class="theme-icon" aria-hidden="true"></span>
-          <span id="theme-label">深色</span>
+          <span id="theme-label">外观</span>
         </button>
         <button class="icon-button" id="open-settings" type="button">
           <span class="settings-icon" aria-hidden="true"></span>
@@ -88,6 +91,11 @@
           </div>
         </div>
         <div class="topbar-metrics">
+          <button class="appearance-quick" id="appearance-quick" type="button" aria-label="打开外观设置" aria-haspopup="dialog">
+            <span class="appearance-quick-glyph" aria-hidden="true"></span>
+            <span>外观</span>
+            <small id="appearance-palette-label">深海蓝图</small>
+          </button>
           <div class="top-stat">
             <span>连续学习</span>
             <strong><span id="top-streak">0</span> 天</strong>
@@ -109,14 +117,131 @@
   </div>
 
   <nav class="mobile-nav" aria-label="移动端主导航">
-    <button class="mobile-nav-item active" type="button" data-route="today"><span>01</span>今日</button>
-    <button class="mobile-nav-item" type="button" data-route="wordlist"><span>02</span>词单</button>
-    <button class="mobile-nav-item" type="button" data-route="learned"><span>03</span>已学</button>
-    <button class="mobile-nav-item" type="button" data-route="library"><span>04</span>词典</button>
-    <button class="mobile-nav-item" type="button" data-route="scenarios"><span>05</span>场景</button>
-    <button class="mobile-nav-item" type="button" data-route="tutorials"><span>06</span>教程</button>
-    <button class="mobile-nav-item" type="button" data-route="memory"><span>07</span>路线</button>
+    <button class="mobile-nav-item active" type="button" data-route="today">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>
+      <span>今日</span>
+    </button>
+    <button class="mobile-nav-item" type="button" data-route="wordlist">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h4"/></svg>
+      <span>词单</span>
+    </button>
+    <button class="mobile-nav-item" type="button" data-route="learned">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1ZM8 4v16M11 9h5"/></svg>
+      <span>已学</span>
+    </button>
+    <button class="mobile-nav-item" type="button" data-route="library">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4.5 4.5"/></svg>
+      <span>词典</span>
+    </button>
+    <button class="mobile-nav-item" id="mobile-more" type="button" aria-label="打开更多栏目">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+      <span>更多</span>
+    </button>
   </nav>
+
+  <dialog class="appearance-dialog" id="appearance-dialog" aria-labelledby="appearance-dialog-title">
+    <div class="appearance-dialog-shell">
+      <header class="appearance-dialog-head">
+        <div>
+          <span class="eyebrow">APPEARANCE LAB</span>
+          <h2 id="appearance-dialog-title">把界面调成你舒服的样子</h2>
+          <p>每套预设会同步调整侧边栏、顶部栏、主视觉与强调色，页面结构保持不变。</p>
+        </div>
+        <button class="dialog-close" id="appearance-dialog-close" type="button" aria-label="关闭外观设置">×</button>
+      </header>
+
+      <div class="appearance-preview" aria-label="当前外观预览">
+        <div class="appearance-preview-frame">
+          <div class="appearance-preview-nav" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </div>
+          <div class="appearance-preview-content">
+            <span class="appearance-preview-kicker">TODAY'S FOCUS</span>
+            <strong>Set Simulate Physics</strong>
+            <p>设置是否模拟物理</p>
+            <div class="appearance-preview-actions">
+              <span>开始复习</span>
+              <i aria-hidden="true"></i>
+            </div>
+          </div>
+        </div>
+        <div class="appearance-preview-meta">
+          <span>当前方案</span>
+          <strong id="appearance-preview-name">深海蓝图 · 浅色</strong>
+          <small id="appearance-preview-glass">无磨砂玻璃</small>
+        </div>
+      </div>
+
+      <section class="appearance-section" aria-labelledby="appearance-palette-heading">
+        <div class="appearance-section-head">
+          <div>
+            <h3 id="appearance-palette-heading">主题预设</h3>
+            <p>整套切换侧边栏、顶部栏、主视觉与强调色。</p>
+          </div>
+          <span>01</span>
+        </div>
+        <div class="appearance-palette-grid" id="appearance-palette-grid"></div>
+      </section>
+
+      <div class="appearance-two-column">
+        <section class="appearance-section" aria-labelledby="appearance-mode-heading">
+          <div class="appearance-section-head">
+            <div>
+              <h3 id="appearance-mode-heading">明暗模式</h3>
+              <p>白天清爽，夜间压低亮度。</p>
+            </div>
+            <span>02</span>
+          </div>
+          <div class="appearance-segmented" id="appearance-theme-options" role="group" aria-label="明暗模式">
+            <button type="button" data-appearance-theme="light">浅色</button>
+            <button type="button" data-appearance-theme="dark">深色</button>
+          </div>
+        </section>
+
+        <section class="appearance-section" aria-labelledby="appearance-glass-heading">
+          <div class="appearance-section-head">
+            <div>
+              <h3 id="appearance-glass-heading">磨砂玻璃</h3>
+              <p>只作用于容器层，正文保持清晰。</p>
+            </div>
+            <span>03</span>
+          </div>
+          <div class="appearance-glass-grid" id="appearance-glass-options" role="group" aria-label="磨砂玻璃强度">
+            <button type="button" data-appearance-glass="off"><i></i><span>关闭</span></button>
+            <button type="button" data-appearance-glass="soft"><i></i><span>轻磨砂</span></button>
+            <button type="button" data-appearance-glass="strong"><i></i><span>深磨砂</span></button>
+          </div>
+          <p class="appearance-support-note" id="appearance-support-note" hidden>当前浏览器不支持背景模糊，已自动使用不透明背景。</p>
+        </section>
+      </div>
+
+      <section class="appearance-section appearance-custom-section" id="appearance-custom-row" aria-labelledby="appearance-custom-heading">
+        <div class="appearance-section-head">
+          <div>
+            <h3 id="appearance-custom-heading">自定义强调色</h3>
+            <p>适合想保留整套冷色结构、只换按钮与进度色的人。</p>
+          </div>
+          <div class="appearance-custom-controls">
+            <label class="appearance-color-control" for="custom-sidebar">
+              <span>侧边栏</span>
+              <input id="custom-sidebar" type="color" value="#0c2437" aria-label="自定义侧边栏底色">
+              <code id="custom-sidebar-value">#0C2437</code>
+            </label>
+            <label class="appearance-color-control" for="custom-accent">
+              <span>强调色</span>
+              <input id="custom-accent" type="color" value="#2d6cdf" aria-label="自定义强调色">
+              <code id="custom-accent-value">#2D6CDF</code>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <footer class="appearance-dialog-footer">
+        <p>设置会自动保存在当前设备，不需要登录。</p>
+        <button class="button button-ghost" id="appearance-reset" type="button">恢复默认外观</button>
+      </footer>
+    </div>
+  </dialog>
 
   <dialog class="term-dialog" id="term-dialog" aria-labelledby="term-dialog-title">
     <div class="term-dialog-shell">
@@ -127,7 +252,7 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="data.js?v=1.1.0"></script>
+  <script src="app.js?v=1.1.0"></script>
 </body>
 </html>

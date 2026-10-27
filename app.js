@@ -1,11 +1,40 @@
 (() => {
   "use strict";
 
+  if (typeof window.structuredClone !== "function") {
+    window.structuredClone = (value) => JSON.parse(JSON.stringify(value));
+  }
+  if (!Array.prototype.at) {
+    Object.defineProperty(Array.prototype, "at", {
+      value(index) {
+        const resolved = Math.trunc(Number(index)) || 0;
+        return this[resolved < 0 ? this.length + resolved : resolved];
+      },
+      configurable: true,
+      writable: true,
+    });
+  }
+  if (!String.prototype.replaceAll) {
+    Object.defineProperty(String.prototype, "replaceAll", {
+      value(search, replacement) {
+        if (search instanceof RegExp) {
+          if (!search.global) throw new TypeError("replaceAll requires a global RegExp");
+          return this.replace(search, replacement);
+        }
+        return this.split(String(search)).join(String(replacement));
+      },
+      configurable: true,
+      writable: true,
+    });
+  }
+
   const DATA = window.BLUEPRINT_DATA;
   if (!DATA || !Array.isArray(DATA.terms)) {
     document.body.innerHTML = "<main style='padding:40px;font-family:sans-serif'><h1>词库数据未加载</h1><p>请确认 data.js 与 index.html 位于同一文件夹。</p></main>";
     return;
   }
+
+  document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
   const terms = DATA.terms;
@@ -17,6 +46,16 @@
   const wordByEn = new Map((DATA.wordGlossary || []).map((word) => [word.en, word]));
   const REVIEW_SCHEDULE = DATA.reviewSchedule;
   const MAX_STEP = REVIEW_SCHEDULE.length - 1;
+  const APPEARANCE_PALETTES = {
+    blueprint: { name: "深海蓝图", note: "沉稳专注", colorA: "#0c2437", colorB: "#75d2d2", sidebarB: "#0a1d2d" },
+    glacier: { name: "冰川青", note: "通透冷静", colorA: "#0b3647", colorB: "#57cbe0", sidebarB: "#082936" },
+    jade: { name: "翡翠绿", note: "柔和自然", colorA: "#143b32", colorB: "#73d0ae", sidebarB: "#0d2923" },
+    iris: { name: "鸢尾紫", note: "创意夜间", colorA: "#24223f", colorB: "#b3a8ff", sidebarB: "#17162e" },
+    graphite: { name: "雾银灰", note: "低刺激阅读", colorA: "#27343a", colorB: "#a8c1cd", sidebarB: "#192529" },
+    custom: { name: "自定义", note: "自选侧栏与强调色", colorA: "#0c2437", colorB: "#2d6cdf", sidebarB: "#071725" },
+  };
+  const GLASS_MODES = new Set(["off", "soft", "strong"]);
+  const GLASS_LABELS = { off: "无磨砂玻璃", soft: "轻磨砂玻璃", strong: "深磨砂玻璃" };
 
   const pageMeta = {
     today: { title: "今日学习", kicker: "TODAY" },
@@ -33,6 +72,10 @@
     settings: {
       newLimit: 10,
       theme: "light",
+      palette: "blueprint",
+      glass: "off",
+      customSidebar: "#0c2437",
+      customAccent: "#2d6cdf",
       speechRate: 1,
       speechVoiceURI: "",
       autoSpeak: false,
@@ -73,6 +116,8 @@
   };
 
   const viewRoot = document.getElementById("view-root");
+  const appearanceDialog = document.getElementById("appearance-dialog");
+  const appearancePaletteGrid = document.getElementById("appearance-palette-grid");
   const termDialog = document.getElementById("term-dialog");
   const termDialogContent = document.getElementById("term-dialog-content");
   const sidebar = document.querySelector(".sidebar");
@@ -93,6 +138,10 @@
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!saved || typeof saved !== "object") return structuredClone(defaultState);
       const settings = { ...defaultState.settings, ...(saved.settings || {}) };
+      if (!APPEARANCE_PALETTES[settings.palette]) settings.palette = "blueprint";
+      if (!GLASS_MODES.has(settings.glass)) settings.glass = "off";
+      settings.customSidebar = normalizeAccent(settings.customSidebar, "#0c2437");
+      settings.customAccent = normalizeAccent(settings.customAccent);
       if (Number(saved.version || 1) < 2 && Number(settings.speechRate) === 0.9) {
         settings.speechRate = 1;
       }
@@ -204,6 +253,64 @@
       || `${minutes} 分钟`;
   }
 
+  function normalizeAccent(value, fallback = "#2d6cdf") {
+    const text = String(value || "").trim();
+    return /^#[0-9a-f]{6}$/i.test(text) ? text.toLowerCase() : fallback;
+  }
+
+  function hexToRgb(hex) {
+    const clean = normalizeAccent(hex).slice(1);
+    return {
+      r: parseInt(clean.slice(0, 2), 16),
+      g: parseInt(clean.slice(2, 4), 16),
+      b: parseInt(clean.slice(4, 6), 16),
+    };
+  }
+
+  function rgbToHex({ r, g, b }) {
+    return `#${[r, g, b].map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  function mixHex(source, target, targetWeight) {
+    const from = hexToRgb(source);
+    const to = hexToRgb(target);
+    const weight = Math.max(0, Math.min(1, targetWeight));
+    return rgbToHex({
+      r: from.r * (1 - weight) + to.r * weight,
+      g: from.g * (1 - weight) + to.g * weight,
+      b: from.b * (1 - weight) + to.b * weight,
+    });
+  }
+
+  function relativeLuminance(hex) {
+    const { r, g, b } = hexToRgb(hex);
+    const channels = [r, g, b].map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  }
+
+  function contrastRatio(first, second) {
+    const a = relativeLuminance(first);
+    const b = relativeLuminance(second);
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  }
+
+  function accentContrast(hex) {
+    return relativeLuminance(hex) > 0.48 ? "#0b2639" : "#ffffff";
+  }
+
+  function accessibleAccent(hex, background) {
+    if (contrastRatio(hex, background) >= 4.5) return hex;
+    const target = relativeLuminance(background) > 0.5 ? "#0f2c43" : "#ffffff";
+    for (let step = 1; step <= 20; step += 1) {
+      const candidate = mixHex(hex, target, step / 20);
+      if (contrastRatio(candidate, background) >= 4.5) return candidate;
+    }
+    return target;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -215,9 +322,122 @@
 
   function applyTheme() {
     const theme = state.settings.theme === "dark" ? "dark" : "light";
-    document.documentElement.dataset.theme = theme;
-    document.getElementById("theme-label").textContent = theme === "dark" ? "浅色" : "深色";
-    themeToggle?.setAttribute("aria-label", theme === "dark" ? "切换浅色模式" : "切换深色模式");
+    const palette = APPEARANCE_PALETTES[state.settings.palette] ? state.settings.palette : "blueprint";
+    const glass = GLASS_MODES.has(state.settings.glass) ? state.settings.glass : "off";
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    root.dataset.palette = palette;
+    root.dataset.glass = glass;
+    ["--deep-blue", "--deep-blue-2", "--theme-accent", "--theme-accent-display",
+      "--theme-accent-strong", "--theme-accent-soft", "--theme-accent-border", "--theme-accent-contrast",
+      "--theme-sidebar-glow", "--theme-hero-tint"]
+      .forEach((property) => root.style.removeProperty(property));
+    if (palette === "custom") {
+      const accent = normalizeAccent(state.settings.customAccent);
+      const sidebar = normalizeAccent(state.settings.customSidebar, "#0c2437");
+      const sidebarEnd = mixHex(sidebar, "#020a10", 0.28);
+      const softTarget = theme === "dark" ? "#122430" : "#ffffff";
+      const soft = mixHex(accent, softTarget, theme === "dark" ? 0.8 : 0.9);
+      const strong = accessibleAccent(accent, "#ffffff");
+      const display = accessibleAccent(accent, "#103149");
+      const accentBorder = mixHex(accent, theme === "dark" ? "#294553" : "#ffffff", theme === "dark" ? 0.55 : 0.82);
+      const { r, g, b } = hexToRgb(accent);
+      root.style.setProperty("--deep-blue", sidebar);
+      root.style.setProperty("--deep-blue-2", sidebarEnd);
+      root.style.setProperty("--theme-accent", accent);
+      root.style.setProperty("--theme-accent-display", display);
+      root.style.setProperty("--theme-accent-strong", strong);
+      root.style.setProperty("--theme-accent-soft", soft);
+      root.style.setProperty("--theme-accent-border", accentBorder);
+      root.style.setProperty("--theme-accent-contrast", accentContrast(accent));
+      root.style.setProperty("--theme-sidebar-glow", `rgba(${r}, ${g}, ${b}, 0.2)`);
+      root.style.setProperty("--theme-hero-tint", `rgba(${r}, ${g}, ${b}, 0.16)`);
+    }
+    const paletteName = APPEARANCE_PALETTES[palette].name;
+    const themeColor = getComputedStyle(root).getPropertyValue("--deep-blue").trim();
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor || "#0c2437");
+    document.getElementById("theme-label").textContent = "外观";
+    document.getElementById("appearance-palette-label").textContent = paletteName;
+    document.getElementById("appearance-preview-name").textContent =
+      `${paletteName} · ${theme === "dark" ? "深色" : "浅色"}`;
+    document.getElementById("appearance-preview-glass").textContent = GLASS_LABELS[glass];
+    themeToggle?.setAttribute("aria-label", `打开外观设置，当前为${paletteName}${theme === "dark" ? "深色" : "浅色"}模式`);
+    syncAppearanceControls();
+    window.AndroidBridge?.setDarkMode?.(theme === "dark");
+  }
+
+  function syncAppearanceControls() {
+    const currentPalette = APPEARANCE_PALETTES[state.settings.palette]
+      ? state.settings.palette
+      : "blueprint";
+    if (appearancePaletteGrid && !appearancePaletteGrid.children.length) {
+      appearancePaletteGrid.innerHTML = Object.entries(APPEARANCE_PALETTES)
+        .map(([key, palette]) => `
+          <button
+            class="appearance-palette-card"
+            type="button"
+            data-palette="${key}"
+            aria-pressed="false"
+          >
+            <span class="appearance-palette-orbit" style="--swatch-a:${palette.colorA};--swatch-b:${palette.colorB}" aria-hidden="true"></span>
+            <span class="appearance-palette-copy">
+              <strong>${escapeHtml(palette.name)}</strong>
+              <small>${escapeHtml(palette.note)}</small>
+            </span>
+            <span class="appearance-palette-check" aria-hidden="true"></span>
+          </button>
+        `)
+        .join("");
+    }
+    appearancePaletteGrid?.querySelectorAll("[data-palette]").forEach((button) => {
+      const active = button.dataset.palette === currentPalette;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    document.querySelectorAll("[data-appearance-theme]").forEach((button) => {
+      const active = button.dataset.appearanceTheme === state.settings.theme;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    document.querySelectorAll("[data-appearance-glass]").forEach((button) => {
+      const active = button.dataset.appearanceGlass === state.settings.glass;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    const customInput = document.getElementById("custom-accent");
+    if (customInput) customInput.value = normalizeAccent(state.settings.customAccent);
+    const customValue = document.getElementById("custom-accent-value");
+    if (customValue) customValue.textContent = normalizeAccent(state.settings.customAccent).toUpperCase();
+    const customSidebarInput = document.getElementById("custom-sidebar");
+    if (customSidebarInput) customSidebarInput.value = normalizeAccent(state.settings.customSidebar, "#0c2437");
+    const customSidebarValue = document.getElementById("custom-sidebar-value");
+    if (customSidebarValue) customSidebarValue.textContent = normalizeAccent(state.settings.customSidebar, "#0c2437").toUpperCase();
+    const customSwatch = appearancePaletteGrid?.querySelector('[data-palette="custom"] .appearance-palette-orbit');
+    if (customSwatch) {
+      customSwatch.style.setProperty("--swatch-a", normalizeAccent(state.settings.customSidebar, "#0c2437"));
+      customSwatch.style.setProperty("--swatch-b", normalizeAccent(state.settings.customAccent));
+    }
+    const supportsGlass = !window.CSS?.supports
+      || CSS.supports("backdrop-filter", "blur(1px)")
+      || CSS.supports("-webkit-backdrop-filter", "blur(1px)");
+    document.documentElement.classList.toggle("no-backdrop", !supportsGlass);
+    const supportNote = document.getElementById("appearance-support-note");
+    if (supportNote) supportNote.hidden = supportsGlass;
+  }
+
+  function openAppearanceDialog() {
+    if (!appearanceDialog || appearanceDialog.open) return;
+    sidebar?.classList.remove("open");
+    mobileMenu?.setAttribute("aria-expanded", "false");
+    syncAppearanceControls();
+    appearanceDialog.showModal();
+    requestAnimationFrame(() => {
+      appearanceDialog.querySelector('[data-palette][aria-pressed="true"]')?.focus();
+    });
+  }
+
+  function closeAppearanceDialog() {
+    if (appearanceDialog?.open) appearanceDialog.close();
   }
 
   function refreshSpeechVoices() {
@@ -265,6 +485,16 @@
   }
 
   function speakSystem(text, trigger = null) {
+    if (window.AndroidBridge?.speakEnglish) {
+      const clean = String(text || "").replace(/[()]/g, " ").replace(/\s+/g, " ").trim();
+      if (!clean) return;
+      clearSpeakingButtons();
+      trigger?.classList.add("is-speaking");
+      trigger?.setAttribute("aria-pressed", "true");
+      window.AndroidBridge.speakEnglish(clean, Math.min(1.5, Math.max(0.5, Number(state.settings.speechRate) || 1)));
+      window.setTimeout(clearSpeakingButtons, 1800);
+      return;
+    }
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
       toast("当前浏览器不支持语音朗读，请使用最新版 Edge 或 Chrome。");
       return;
@@ -725,6 +955,12 @@
         button.setAttribute("aria-current", active ? "page" : "false");
       }
     });
+    const mobileMore = document.getElementById("mobile-more");
+    if (mobileMore) {
+      const moreActive = ["scenarios", "tutorials", "memory"].includes(ui.route);
+      mobileMore.classList.toggle("active", moreActive);
+      mobileMore.setAttribute("aria-current", moreActive ? "page" : "false");
+    }
   }
 
   function updateTopStats() {
@@ -1737,6 +1973,13 @@
             <section class="side-card" id="learning-settings">
               <div class="side-card-head"><h3>学习设置</h3><span class="tag">SETTINGS</span></div>
               <div class="settings-panel">
+                <button class="settings-appearance-entry" type="button" data-action="open-appearance">
+                  <span>
+                    <strong>外观与配色</strong>
+                    <small>${escapeHtml(APPEARANCE_PALETTES[state.settings.palette]?.name || "深海蓝图")} · ${state.settings.theme === "dark" ? "深色" : "浅色"} · ${GLASS_LABELS[state.settings.glass] || GLASS_LABELS.off}</small>
+                  </span>
+                  <span aria-hidden="true">调整 →</span>
+                </button>
                 <div class="setting-row">
                   <div><strong>每天新词上限</strong><small>到期复习会计入总任务，不占用此上限。</small></div>
                   <select id="new-limit-select" aria-label="每天新词上限">
@@ -1930,6 +2173,7 @@
 
   function toast(message, options = {}) {
     const region = document.getElementById("toast-region");
+    if (options.replace) region.replaceChildren();
     const item = document.createElement("div");
     item.className = "toast";
     const copy = document.createElement("span");
@@ -1958,10 +2202,16 @@
       version: state.version,
       state,
     };
+    const filename = `blueprint-memory-${dateKey()}.json`;
+    if (window.AndroidBridge?.saveTextFile) {
+      window.AndroidBridge.saveTextFile(filename, JSON.stringify(payload, null, 2));
+      toast("学习进度已保存到“下载”文件夹");
+      return;
+    }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `blueprint-memory-${dateKey()}.json`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(link.href);
     toast("学习进度已导出");
@@ -1984,6 +2234,10 @@
           activityDays: Array.isArray(nextState.activityDays) ? nextState.activityDays : [],
           session: null,
         };
+        if (!APPEARANCE_PALETTES[state.settings.palette]) state.settings.palette = "blueprint";
+        if (!GLASS_MODES.has(state.settings.glass)) state.settings.glass = "off";
+        state.settings.customSidebar = normalizeAccent(state.settings.customSidebar, "#0c2437");
+        state.settings.customAccent = normalizeAccent(state.settings.customAccent);
         ensureSession();
         applyTheme();
         saveState();
@@ -1998,8 +2252,9 @@
 
   function resetProgress() {
     if (!confirm("确定清空全部复习进度吗？词库内容不会删除，但学习记录会重置。")) return;
+    const preservedSettings = { ...state.settings };
     state = structuredClone(defaultState);
-    state.settings.theme = document.documentElement.dataset.theme || "light";
+    state.settings = { ...state.settings, ...preservedSettings };
     ensureSession();
     applyTheme();
     saveState();
@@ -2008,6 +2263,35 @@
   }
 
   function handleClick(event) {
+    const paletteButton = event.target.closest("button[data-palette]");
+    if (paletteButton) {
+      const palette = paletteButton.dataset.palette;
+      if (!APPEARANCE_PALETTES[palette]) return;
+      state.settings.palette = palette;
+      applyTheme();
+      saveState();
+      toast(`配色已切换为${APPEARANCE_PALETTES[palette].name}`, { replace: true });
+      return;
+    }
+
+    const appearanceThemeButton = event.target.closest("[data-appearance-theme]");
+    if (appearanceThemeButton) {
+      state.settings.theme = appearanceThemeButton.dataset.appearanceTheme === "dark" ? "dark" : "light";
+      applyTheme();
+      saveState();
+      return;
+    }
+
+    const appearanceGlassButton = event.target.closest("[data-appearance-glass]");
+    if (appearanceGlassButton) {
+      state.settings.glass = GLASS_MODES.has(appearanceGlassButton.dataset.appearanceGlass)
+        ? appearanceGlassButton.dataset.appearanceGlass
+        : "off";
+      applyTheme();
+      saveState();
+      return;
+    }
+
     const routeButton = event.target.closest("[data-route]");
     if (routeButton) {
       event.preventDefault();
@@ -2153,6 +2437,7 @@
     if (action === "export") exportProgress();
     if (action === "import") document.getElementById("import-progress-file")?.click();
     if (action === "reset") resetProgress();
+    if (action === "open-appearance") openAppearanceDialog();
     if (action === "close-dialog") closeTermDialog();
     if (action === "close-and-study") {
       closeTermDialog();
@@ -2186,9 +2471,31 @@
       handleImport(event.target.files?.[0]);
       event.target.value = "";
     }
+    if (event.target.id === "custom-accent") {
+      state.settings.customAccent = normalizeAccent(event.target.value);
+      state.settings.palette = "custom";
+      applyTheme();
+    }
+    if (event.target.id === "custom-sidebar") {
+      state.settings.customSidebar = normalizeAccent(event.target.value, "#0c2437");
+      state.settings.palette = "custom";
+      applyTheme();
+    }
   }
 
   function handleChange(event) {
+    if (event.target.id === "custom-accent") {
+      state.settings.customAccent = normalizeAccent(event.target.value);
+      state.settings.palette = "custom";
+      applyTheme();
+      saveState();
+    }
+    if (event.target.id === "custom-sidebar") {
+      state.settings.customSidebar = normalizeAccent(event.target.value, "#0c2437");
+      state.settings.palette = "custom";
+      applyTheme();
+      saveState();
+    }
     if (event.target.id === "library-category") {
       ui.library.category = event.target.value;
       ui.library.limit = 24;
@@ -2283,15 +2590,31 @@
     if (event.target === termDialog) closeTermDialog();
   });
 
-  themeToggle.addEventListener("click", () => {
-    state.settings.theme = state.settings.theme === "dark" ? "light" : "dark";
-    saveState();
+  themeToggle.addEventListener("click", openAppearanceDialog);
+  document.getElementById("appearance-quick").addEventListener("click", openAppearanceDialog);
+  document.getElementById("appearance-dialog-close").addEventListener("click", closeAppearanceDialog);
+  appearanceDialog.addEventListener("click", (event) => {
+    if (event.target === appearanceDialog) closeAppearanceDialog();
+  });
+  document.getElementById("appearance-reset").addEventListener("click", () => {
+    state.settings.theme = defaultState.settings.theme;
+    state.settings.palette = defaultState.settings.palette;
+    state.settings.glass = defaultState.settings.glass;
+    state.settings.customSidebar = defaultState.settings.customSidebar;
+    state.settings.customAccent = defaultState.settings.customAccent;
     applyTheme();
+    saveState();
+    toast("已恢复默认外观", { replace: true });
   });
 
   mobileMenu.addEventListener("click", () => {
     const open = sidebar.classList.toggle("open");
     mobileMenu.setAttribute("aria-expanded", String(open));
+  });
+
+  document.getElementById("mobile-more")?.addEventListener("click", () => {
+    sidebar.classList.add("open");
+    mobileMenu.setAttribute("aria-expanded", "true");
   });
 
   document.getElementById("open-settings").addEventListener("click", () => {
@@ -2341,6 +2664,9 @@
 
   const hashRoute = location.hash.replace("#", "");
   if (pageMeta[hashRoute]) ui.route = hashRoute;
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  }
   window.setInterval(() => {
     const before = getQueue().join(",");
     ensureSession();

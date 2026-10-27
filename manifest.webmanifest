@@ -1,0 +1,43 @@
+{
+  "name": "Blueprint Memory Lab",
+  "short_name": "Blueprint",
+  "description": "UE5 Blueprint 中英词汇、拆词记忆、联想复习与场景串联",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1f6f8",
+  "theme_color": "#0b2639",
+  "orientation": "portrait-primary",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "今日学习",
+      "short_name": "今日",
+      "url": "./index.html#today"
+    },
+    {
+      "name": "词典搜索",
+      "short_name": "词典",
+      "url": "./index.html#library"
+    },
+    {
+      "name": "已学与复习",
+      "short_name": "复习",
+      "url": "./index.html#learned"
+    }
+  ]
+}

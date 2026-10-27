@@ -4451,6 +4451,19 @@ body {
   color: var(--theme-accent-display, var(--theme-accent-strong));
 }
 
+:root[data-theme="dark"] [data-action="hide-new-answer"] {
+  border-color: var(--theme-accent-strong);
+  background: var(--theme-accent-strong);
+  color: #ffffff;
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--theme-accent-strong) 26%, transparent);
+}
+
+:root[data-theme="dark"] [data-action="hide-new-answer"]:hover {
+  border-color: color-mix(in srgb, var(--theme-accent-strong) 88%, #000000);
+  background: color-mix(in srgb, var(--theme-accent-strong) 88%, #000000);
+  color: #ffffff;
+}
+
 .phrase-memory {
   border-left-color: var(--theme-accent-strong);
   background: var(--theme-accent-soft);

@@ -9,13 +9,13 @@
 
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.1.0-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.1.0/Blueprint-Memory-Lab-v1.1.0-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.1.0.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.1.0/Blueprint-Memory-Lab-Web-v1.1.0.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.1.0/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.1.1-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.1.1/Blueprint-Memory-Lab-v1.1.1-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.1.1.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.1.1/Blueprint-Memory-Lab-Web-v1.1.1.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.1.1/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.1.0`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.1.1`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案
@@ -34,6 +34,7 @@ Android 版：
 - Epic 官方中文文档与学习资源
 - 五套完整主题预设，可分别自定义侧边栏和强调色
 - 浅色、深色和三档磨砂玻璃
+- 深色模式下恢复“隐藏释义，立即自测”按钮的亮蓝视觉强调
 
 ## 本地使用
 

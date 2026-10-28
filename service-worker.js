@@ -1,10 +1,11 @@
-const CACHE_NAME = "blueprint-memory-cool-v129";
+const CACHE_NAME = "blueprint-memory-cool-v1210";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./data.js",
+  "./data-extensions.js",
   "./manifest.webmanifest",
   "./assets/app-icon.svg",
   "./assets/app-icon-192.png",

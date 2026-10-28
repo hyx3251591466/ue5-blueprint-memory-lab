@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.9";
+  const APP_VERSION = "1.2.10";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -2916,7 +2916,8 @@
       if (ui.learned.scope === "due" && !isProgressDue(progress)) return false;
       if (ui.learned.scope === "mastered" && (progress.step ?? -1) < 4) return false;
       if (!query) return true;
-      return [term.en, term.zh, term.category, term.usage, term.location].join(" ").toLowerCase().includes(query);
+      return [term.en, term.zh, term.category, term.usage, term.location, ...(term.aliases || [])]
+        .join(" ").toLowerCase().includes(query);
     });
   }
 
@@ -3305,7 +3306,7 @@
       const status = termStatus(term).key;
       if (ui.library.status !== "all" && status !== ui.library.status) return false;
       if (!query) return true;
-      return [term.en, term.zh, term.category, term.location, term.usage, term.tip]
+      return [term.en, term.zh, term.category, term.location, term.usage, term.tip, ...(term.aliases || [])]
         .join(" ")
         .toLowerCase()
         .includes(query);

@@ -1,13 +1,13 @@
-Blueprint Memory Lab v1.2.2
+Blueprint Memory Lab v1.2.3
 
 Android 安装
-1. 下载 Blueprint-Memory-Lab-v1.2.2-universal.apk。
+1. 下载 Blueprint-Memory-Lab-v1.2.3-universal.apk。
 2. 点击 APK 安装；若系统提示，请允许当前浏览器或文件管理器“安装未知应用”。
 3. 本版本包名为 com.blueprintmemorylab.app，可覆盖升级旧版并保留学习记录。
 4. 支持 Android 6.0 及以上。
 
 网页离线版
-1. 下载 Blueprint-Memory-Lab-Web-v1.2.2.zip。
+1. 下载 Blueprint-Memory-Lab-Web-v1.2.3.zip。
 2. 完整解压压缩包。
 3. 保持所有文件在同一文件夹，双击 index.html。
 4. 推荐使用最新版 Edge、Chrome 或 Android WebView。

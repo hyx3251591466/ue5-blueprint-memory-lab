@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.2";
+  const APP_VERSION = "1.2.3";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -1823,7 +1823,7 @@
     const completed = state.session.completedIds.filter((id) => state.session.focusIds.includes(id)).length;
     const overview = state.session.focusPhase !== "quiz";
     const currentIndex = Math.max(0, state.session.focusIds.indexOf(Number(term.id)));
-    const position = overview ? currentIndex + 1 : Math.min(completed + 1, initial);
+    const position = overview ? currentIndex + 1 : completed;
     const percent = overview
       ? Math.round((currentIndex / initial) * 100)
       : Math.round((completed / initial) * 100);
@@ -1834,7 +1834,7 @@
           <span>${overview ? "01 · 基础通览" : "02 · 混合练习"}</span>
           <strong>${escapeHtml(term.en)}</strong>
         </div>
-        <div class="focus-counter"><strong>${position}</strong><span>/ ${initial}</span></div>
+        <div class="focus-counter"><small>${overview ? "词语" : "完成"}</small><strong>${position}</strong><span>/ ${initial}</span></div>
         <div class="focus-progress" aria-label="本次背诵进度"><span style="width:${percent}%"></span></div>
       </header>
     `;
@@ -1892,7 +1892,7 @@
             <span>REVIEW · 回看</span>
             <strong>${escapeHtml(term.en)}</strong>
           </div>
-          <div class="focus-counter"><strong>${studyHistoryIndex + 1}</strong><span>/ ${studyHistory.length}</span></div>
+          <div class="focus-counter"><small>回看</small><strong>${studyHistoryIndex + 1}</strong><span>/ ${studyHistory.length}</span></div>
           <div class="focus-progress"><span style="width:${studyHistory.length ? ((studyHistoryIndex + 1) / studyHistory.length) * 100 : 0}%"></span></div>
         </header>
         <main class="focus-stage">${card}</main>
@@ -3708,25 +3708,29 @@
     const dy = event.clientY - studyDrag.startY;
     studyDrag.dx = dx;
     studyDrag.dy = dy;
+    const distance = Math.hypot(dx, dy);
+    const horizontalRatio = distance ? Math.abs(dx) / distance : 0;
     if (!studyDrag.horizontal) {
-      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+      if (distance > 14 && horizontalRatio < 0.22) {
         studyDrag = null;
         return;
       }
-      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy) * 1.1) return;
+      if (distance < 8 || horizontalRatio < 0.22) return;
       studyDrag.horizontal = true;
+      studyDrag.horizontalRatio = horizontalRatio;
       studyDrag.card.classList.add("is-dragging");
       studyDrag.card.setPointerCapture?.(event.pointerId);
     }
     const now = performance.now();
     const elapsed = Math.max(1, now - studyDrag.lastTime);
     studyDrag.velocity = (event.clientX - studyDrag.lastX) / elapsed;
+    studyDrag.horizontalRatio = horizontalRatio;
     studyDrag.lastX = event.clientX;
     studyDrag.lastTime = now;
     const rotate = Math.max(-8, Math.min(8, dx * 0.025));
     const lift = Math.min(0.025, Math.abs(dx) / 2600);
     studyDrag.card.style.transition = "none";
-    studyDrag.card.style.transform = `translate3d(${dx}px, ${Math.abs(dx) * 0.045}px, 0) rotate(${rotate}deg) scale(${1 - lift})`;
+    studyDrag.card.style.transform = `translate3d(${dx}px, ${dy * 0.22}px, 0) rotate(${rotate}deg) scale(${1 - lift})`;
     studyDrag.card.style.opacity = String(Math.max(0.72, 1 - Math.abs(dx) / 720));
     if (event.cancelable) event.preventDefault();
   }
@@ -3742,7 +3746,9 @@
     const canNavigate = direction === "back"
       ? studyHistory.length > 0
       : studyHistoryIndex != null;
-    const shouldFly = canNavigate && (Math.abs(drag.dx) > 64 || Math.abs(drag.velocity) > 0.42);
+    const shouldFly = canNavigate
+      && (drag.horizontalRatio || 0) >= 0.22
+      && (Math.abs(drag.dx) > 56 || Math.abs(drag.velocity) > 0.38);
     if (!shouldFly) {
       const card = drag.card;
       card.style.transition = "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease";

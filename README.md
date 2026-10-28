@@ -7,15 +7,37 @@
 - 网页版：<https://hyx3251591466.github.io/ue5-blueprint-memory-lab/>
 - 下载中心：<https://hyx3251591466.github.io/ue5-blueprint-memory-lab/download.html>
 
+## 界面预览
+
+### 首页与专注背诵
+
+| 今日学习 | 专注背诵设置 |
+| --- | --- |
+| ![今日学习首页](screenshots/github-home-desktop.png) | ![专注背诵设置](screenshots/github-focus-setup.png) |
+
+| 基础通览 | 混合选择题 |
+| --- | --- |
+| ![基础通览卡片](screenshots/github-focus-overview.png) | ![混合选择题卡片](screenshots/github-focus-question.png) |
+
+| 滑动回看历史卡 | 本地拆词翻译侧卡 |
+| --- | --- |
+| ![滑动回看历史卡](screenshots/github-focus-history.png) | ![本地拆词翻译](screenshots/github-word-fallback.png) |
+
+### 手机端
+
+| 今日学习 | 侧边栏导航 | 词典筛选 |
+| --- | --- | --- |
+| ![手机今日学习](screenshots/github-mobile-home.png) | ![手机侧边栏](screenshots/github-mobile-sidebar.png) | ![手机词典筛选](screenshots/github-mobile-library.png) |
+
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.2.2-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.2/Blueprint-Memory-Lab-v1.2.2-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.2.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.2/Blueprint-Memory-Lab-Web-v1.2.2.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.2/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.2.3-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.3/Blueprint-Memory-Lab-v1.2.3-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.3.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.3/Blueprint-Memory-Lab-Web-v1.2.3.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.3/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.2.2`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.2.3`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案

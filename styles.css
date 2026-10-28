@@ -4723,6 +4723,13 @@ button.phrase-part:hover {
   font-size: 9px;
 }
 
+.focus-counter small {
+  display: inline-block;
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
 .focus-progress {
   grid-column: 1 / -1;
   height: 4px;
@@ -9781,5 +9788,44 @@ html[data-view="study"] .view-root {
 @media (prefers-reduced-motion: reduce) {
   .limit-add-choice {
     transition: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .sidebar,
+  .sidebar.open {
+    transition-property: transform, visibility, background-color, color, border-color, box-shadow;
+    transition-duration: 280ms, 0s, 220ms, 220ms, 220ms, 220ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), linear, ease, ease, ease, ease;
+  }
+
+  .sidebar {
+    transition-delay: 0s, 280ms, 0s, 0s, 0s, 0s;
+  }
+
+  .sidebar.open {
+    transition-delay: 0s, 0s, 0s, 0s, 0s, 0s;
+  }
+
+  .sidebar:not(.open) {
+    transform: translateX(-105%);
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  html.sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  html:not(.sidebar-open) .sidebar-backdrop {
+    opacity: 0;
+    pointer-events: none;
   }
 }

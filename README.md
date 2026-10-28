@@ -35,13 +35,13 @@
 
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.2.6-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.6/Blueprint-Memory-Lab-v1.2.6-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.6.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.6/Blueprint-Memory-Lab-Web-v1.2.6.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.6/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.2.7-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.7/Blueprint-Memory-Lab-v1.2.7-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.7.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.7/Blueprint-Memory-Lab-Web-v1.2.7.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.7/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.2.6`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.2.7`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案
@@ -69,6 +69,7 @@ Android 版：
 - 移动端搜索框固定为 13px 字号，避免浏览器自动放大造成突兀
 - 444 个多词组节点拆词记忆
 - 智能整句朗读：有道优先，百度整句自动兜底，系统语音最终回退
+- 在线版通过 Service Worker 同源代理请求整句音频，避免第三方音频接口因网页 Referer 返回空页面
 - 全部 573 个词条完成在线整句音频覆盖检查，长词组不再逐词拼接
 - 每个词条的联想画面、记忆方法和自测问题
 - 可编辑并本地保存的个人联想笔记

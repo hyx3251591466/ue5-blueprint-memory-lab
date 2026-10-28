@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.6";
+  const APP_VERSION = "1.2.7";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -1033,7 +1033,11 @@
 
   function baiduAudioUrl(text) {
     const rate = Math.min(5, Math.max(2, Math.round((Number(state.settings.speechRate) || 1) * 3)));
-    return `https://fanyi.baidu.com/gettts?lan=en&spd=${rate}&text=${encodeURIComponent(normalizeSpeechText(text))}&source=web`;
+    const target = `https://fanyi.baidu.com/gettts?lan=en&spd=${rate}&text=${encodeURIComponent(normalizeSpeechText(text))}&source=web`;
+    if (/^https?:$/.test(location.protocol) && navigator.serviceWorker?.controller) {
+      return `./tts-proxy?target=${encodeURIComponent(target)}`;
+    }
+    return target;
   }
 
   function clearSpeakingButtons() {
@@ -1084,7 +1088,9 @@
   function playRemoteAudio(text, source) {
     return new Promise((resolve, reject) => {
       const url = source === "baidu" ? baiduAudioUrl(text) : youdaoAudioUrl(text);
-      const audio = new Audio(url);
+      const audio = new Audio();
+      audio.referrerPolicy = "no-referrer";
+      audio.src = url;
       youdaoAudio?.pause?.();
       youdaoAudio = audio;
       audio.preload = "auto";

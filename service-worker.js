@@ -1,4 +1,4 @@
-const CACHE_NAME = "blueprint-memory-cool-v126";
+const CACHE_NAME = "blueprint-memory-cool-v127";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -28,6 +28,20 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  if (url.origin === self.location.origin && url.pathname.endsWith("/tts-proxy")) {
+    const target = url.searchParams.get("target") || "";
+    if (!/^https:\/\/fanyi\.baidu\.com\/gettts\?/i.test(target)) {
+      event.respondWith(new Response("Invalid audio target", { status: 400 }));
+      return;
+    }
+    event.respondWith(fetch(target, {
+      mode: "no-cors",
+      credentials: "omit",
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    }));
+    return;
+  }
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(

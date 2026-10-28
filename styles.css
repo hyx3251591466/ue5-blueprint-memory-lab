@@ -4811,6 +4811,11 @@ button.phrase-part:hover {
   cursor: default;
 }
 
+.is-history-view .focus-card [data-speak] {
+  cursor: pointer;
+  opacity: 1;
+}
+
 .is-history-view.can-resume .focus-card button[data-study-answer] {
   cursor: pointer;
   opacity: 1;
@@ -5642,14 +5647,19 @@ html[data-view="study"] .focus-stage {
 
 .word-lookup-card.is-floating {
   position: fixed;
-  top: 24px;
-  right: max(18px, calc((100vw - 1480px) / 2));
+  top: 0;
+  right: auto;
   z-index: 65;
   width: min(380px, calc(100vw - 36px));
   max-height: min(82dvh, 760px);
   border-color: color-mix(in srgb, var(--blue) 30%, var(--line));
   -webkit-backdrop-filter: blur(20px) saturate(1.08);
   backdrop-filter: blur(20px) saturate(1.08);
+}
+
+.word-lookup-card.is-floating.is-dragging {
+  transition: none;
+  will-change: left, top;
 }
 
 .appearance-dialog-head,
@@ -5668,6 +5678,27 @@ html[data-view="study"] .focus-stage {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.word-lookup-card.is-dragging .word-lookup-card-head {
+  cursor: grabbing;
+}
+
+.word-lookup-card-heading {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 10px;
+}
+
+.word-lookup-drag-hint {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.04em;
 }
 
 .word-lookup-card-close {
@@ -5790,11 +5821,10 @@ html[data-view="study"] .focus-stage {
 
 @media (max-width: 620px) {
   .word-lookup-card.is-floating {
-    top: max(10px, env(safe-area-inset-top));
-    right: 9px;
-    left: 9px;
-    width: auto;
-    max-height: calc(100dvh - max(20px, env(safe-area-inset-top)));
+    top: 0;
+    right: auto;
+    width: min(340px, calc(100vw - 20px));
+    max-height: min(72dvh, calc(100dvh - 112px));
     padding: 18px 15px;
     border-radius: 16px;
   }
@@ -8259,6 +8289,18 @@ html[data-view="study"] {
   background: var(--bg);
 }
 
+html[data-view="study"] body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--blue) 9%, transparent), transparent 30%),
+    linear-gradient(var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+}
+
 html[data-view="study"] .app-shell {
   display: block;
 }
@@ -8299,16 +8341,7 @@ html[data-view="study"] .view-root {
 .focus-page::before,
 .focus-setup-page::before,
 .focus-complete-page::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  background:
-    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--blue) 9%, transparent), transparent 30%),
-    linear-gradient(var(--bg-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px),
-    var(--bg);
-  background-size: auto, 32px 32px, 32px 32px, auto;
+  display: none;
 }
 
 .focus-header {

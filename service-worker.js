@@ -1,4 +1,4 @@
-const CACHE_NAME = "blueprint-memory-cool-v127";
+const CACHE_NAME = "blueprint-memory-cool-v128";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -45,10 +45,21 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-      return response;
-    })),
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(event.request, { ignoreSearch: true });
+        if (cached) return cached;
+        if (event.request.mode === "navigate") {
+          return (await caches.match("./index.html")) || Response.error();
+        }
+        return Response.error();
+      }),
   );
 });

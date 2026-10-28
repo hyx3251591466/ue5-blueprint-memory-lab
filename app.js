@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.7";
+  const APP_VERSION = "1.2.8";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -333,6 +333,17 @@
     return settings;
   }
 
+  function normalizeWordCardPosition(value) {
+    if (!value || typeof value !== "object") return null;
+    const x = Number(value.x);
+    const y = Number(value.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return {
+      x: Math.min(1, Math.max(0, x)),
+      y: Math.min(1, Math.max(0, y)),
+    };
+  }
+
   function liquidSummary(settings = state?.settings || defaultState.settings) {
     return [
       LIQUID_LABELS.depth[settings.liquidDepth] || LIQUID_LABELS.depth.balanced,
@@ -407,6 +418,8 @@
       liquidGloss: "soft",
       customSidebar: "#0c2437",
       customAccent: "#2d6cdf",
+      wordCardPosition: null,
+      autoCloseWordLookup: true,
       speechRate: 1,
       speechVoiceURI: "",
       autoSpeak: false,
@@ -474,9 +487,11 @@
   let lastAutoSpokenTermId = null;
   let youdaoPlaybackToken = 0;
   let youdaoAudio = null;
+  let cancelCurrentAudioPlayback = null;
   let youdaoFallbackNotified = false;
   let modalScrollY = 0;
   let wordLookupCloseTimer = 0;
+  let wordCardDrag = null;
   let pendingTodayAdd = null;
   let routeTransitionActive = false;
   const studyHistory = [];
@@ -496,6 +511,8 @@
       normalizeLiquidSettings(settings);
       settings.customSidebar = normalizeAccent(settings.customSidebar, "#0c2437");
       settings.customAccent = normalizeAccent(settings.customAccent);
+      settings.wordCardPosition = normalizeWordCardPosition(settings.wordCardPosition);
+      settings.autoCloseWordLookup = settings.autoCloseWordLookup !== false;
       if (!["youdao", "baidu", "system"].includes(settings.speechEngine)) {
         settings.speechEngine = "youdao";
       }
@@ -1040,11 +1057,52 @@
     return target;
   }
 
+  function waitForSpeechProxyControl(timeout = 1800) {
+    if (!/^https?:$/.test(location.protocol) || !("serviceWorker" in navigator)) {
+      return Promise.resolve(false);
+    }
+    if (navigator.serviceWorker.controller) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let settled = false;
+      let readyListener = null;
+      const finish = (available) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        if (readyListener) navigator.serviceWorker.removeEventListener?.("controllerchange", readyListener);
+        resolve(Boolean(available));
+      };
+      readyListener = () => {
+        if (navigator.serviceWorker.controller) finish(true);
+      };
+      const timer = window.setTimeout(() => finish(Boolean(navigator.serviceWorker.controller)), timeout);
+      navigator.serviceWorker.addEventListener?.("controllerchange", readyListener);
+      navigator.serviceWorker.ready.then(() => {
+        if (navigator.serviceWorker.controller) finish(true);
+      }).catch(() => finish(false));
+    });
+  }
+
   function clearSpeakingButtons() {
     document.querySelectorAll(".speak-button.is-speaking").forEach((button) => {
       button.classList.remove("is-speaking");
       button.setAttribute("aria-pressed", "false");
     });
+  }
+
+  function stopSpeech() {
+    youdaoPlaybackToken += 1;
+    cancelCurrentAudioPlayback?.();
+    cancelCurrentAudioPlayback = null;
+    if (youdaoAudio) {
+      youdaoAudio.pause?.();
+      youdaoAudio.removeAttribute?.("src");
+      youdaoAudio.load?.();
+      youdaoAudio = null;
+    }
+    window.speechSynthesis?.cancel?.();
+    window.AndroidBridge?.stopSpeaking?.();
+    clearSpeakingButtons();
   }
 
   function speakSystem(text, trigger = null) {
@@ -1085,7 +1143,14 @@
     window.speechSynthesis.speak(utterance);
   }
 
-  function playRemoteAudio(text, source) {
+  async function playRemoteAudio(text, source, shouldStart = () => true) {
+    if (source === "baidu") {
+      const proxyReady = await waitForSpeechProxyControl();
+      if (/^https?:$/.test(location.protocol) && !proxyReady) {
+        throw new Error("整句音频代理尚未就绪");
+      }
+    }
+    if (!shouldStart()) throw new Error("音频播放已取消");
     return new Promise((resolve, reject) => {
       const url = source === "baidu" ? baiduAudioUrl(text) : youdaoAudioUrl(text);
       const audio = new Audio();
@@ -1102,21 +1167,23 @@
       const finish = (callback, value) => {
         if (settled) return;
         settled = true;
+        cancelCurrentAudioPlayback = null;
         window.clearTimeout(timeout);
         callback(value);
       };
+      cancelCurrentAudioPlayback = () => finish(reject, new Error("音频播放已取消"));
       audio.addEventListener("ended", () => finish(resolve), { once: true });
       audio.addEventListener("error", () => finish(reject, new Error(`${source === "baidu" ? "百度" : "有道"}发音不可用`)), { once: true });
       audio.play().catch((error) => finish(reject, error));
     });
   }
 
-  function playYoudaoAudio(text) {
-    return playRemoteAudio(text, "youdao");
+  function playYoudaoAudio(text, shouldStart) {
+    return playRemoteAudio(text, "youdao", shouldStart);
   }
 
-  function playBaiduAudio(text) {
-    return playRemoteAudio(text, "baidu");
+  function playBaiduAudio(text, shouldStart) {
+    return playRemoteAudio(text, "baidu", shouldStart);
   }
 
   async function speakYoudao(text, trigger = null) {
@@ -1128,12 +1195,12 @@
     trigger?.classList.add("is-speaking");
     trigger?.setAttribute("aria-pressed", "true");
     try {
-      await playYoudaoAudio(clean);
+      await playYoudaoAudio(clean, () => token === youdaoPlaybackToken);
       if (token === youdaoPlaybackToken) clearSpeakingButtons();
     } catch {
       if (token !== youdaoPlaybackToken) return;
       try {
-        await playBaiduAudio(clean);
+        await playBaiduAudio(clean, () => token === youdaoPlaybackToken);
         if (token === youdaoPlaybackToken) clearSpeakingButtons();
       } catch {
         if (token !== youdaoPlaybackToken) return;
@@ -1155,7 +1222,7 @@
     trigger?.classList.add("is-speaking");
     trigger?.setAttribute("aria-pressed", "true");
     try {
-      await playBaiduAudio(clean);
+      await playBaiduAudio(clean, () => token === youdaoPlaybackToken);
       if (token === youdaoPlaybackToken) clearSpeakingButtons();
     } catch {
       if (token !== youdaoPlaybackToken) return;
@@ -1670,6 +1737,7 @@
   }
 
   function render() {
+    stopSpeech();
     ensureSession();
     document.documentElement.dataset.view = ui.route;
     renderNavigation();
@@ -1974,12 +2042,14 @@
       renderStudy();
       return;
     }
+    stopSpeech();
     const snapshot = studyHistory[studyHistoryIndex];
     const term = termById.get(Number(snapshot.termId));
     if (!term) {
       showStudyHistory("forward");
       return;
     }
+    if (state.settings.autoCloseWordLookup) closeWordLookupCard(true);
     const card = snapshot.type === "overview"
       ? renderStudyLearn(term)
       : (snapshot.feedback
@@ -2004,7 +2074,8 @@
       </div>
     `;
     viewRoot.querySelectorAll(".focus-card button, .focus-card input, .focus-card select").forEach((element) => {
-      element.disabled = !(canResume && element.matches("[data-study-answer]"));
+      const canReplayAudio = element.matches("[data-speak]");
+      element.disabled = !(canReplayAudio || (canResume && element.matches("[data-study-answer]")));
     });
   }
 
@@ -2252,6 +2323,8 @@
   }
 
   function renderStudy() {
+    stopSpeech();
+    if (state.settings.autoCloseWordLookup) closeWordLookupCard(true);
     ensureSession();
     if (!state.session.focusActive && ui.study.phase !== "complete") {
       renderStudySetup();
@@ -3558,6 +3631,34 @@
                 <button class="button button-soft" type="button" data-speak="Blueprint Class">试听 Blueprint Class</button>
               </div>
             </section>
+
+            <section class="side-card settings-section">
+              <div class="settings-section-head">
+                <div>
+                  <span class="eyebrow">WORD LOOKUP CARD</span>
+                  <h3>查词卡行为</h3>
+                  <p>查词卡默认出现在右侧，可拖动标题栏；位置会随学习进度一起保存。</p>
+                </div>
+                <span class="tag">03</span>
+              </div>
+              <div class="settings-panel">
+                <div class="setting-row">
+                  <div><strong>切换主卡时自动收起查词卡</strong><small>关闭后可让查词卡继续保持打开，方便连续对比几个主词。</small></div>
+                  <label class="speech-switch">
+                    <input id="auto-close-word-lookup" type="checkbox" ${state.settings.autoCloseWordLookup ? "checked" : ""}>
+                    <span aria-hidden="true"></span>
+                    <b>${state.settings.autoCloseWordLookup ? "自动收起" : "保持打开"}</b>
+                  </label>
+                </div>
+                <div class="setting-row">
+                  <div>
+                    <strong>查词卡位置</strong>
+                    <small>${state.settings.wordCardPosition ? "已记住你的拖动位置；窗口变小时会自动限制在可见区域。" : "当前使用右侧居中的默认位置。"}</small>
+                  </div>
+                  <button class="button" type="button" data-action="reset-word-card-position" ${state.settings.wordCardPosition ? "" : "disabled"}>恢复默认位置</button>
+                </div>
+              </div>
+            </section>
           </div>
 
           <aside class="settings-side-stack">
@@ -3568,7 +3669,7 @@
                   <h3>外观与配色</h3>
                   <p>主题、侧边栏配色、玻璃质感和液态玻璃参数都在独立面板中调整。</p>
                 </div>
-                <span class="tag">03</span>
+                <span class="tag">04</span>
               </div>
               <button class="settings-appearance-entry" type="button" data-action="open-appearance">
                 <span>
@@ -3629,7 +3730,7 @@
     refreshSpeechVoices();
   }
 
-  function wordLookupMarkup(wordEn, basicZh = "") {
+  function wordLookupMarkup(wordEn, basicZh = "", draggable = false) {
     const info = wordByEn.get(wordEn);
     const translation = info?.zh || basicZh;
     if (!translation) return "";
@@ -3640,8 +3741,11 @@
       })
       .slice(0, 8);
     return `
-      <header class="word-lookup-card-head">
-        <span class="eyebrow">${info ? "QUICK WORD · 网页内查词" : "BASIC TRANSLATION · 基础翻译"}</span>
+      <header class="word-lookup-card-head" ${draggable ? "data-word-card-drag-handle" : ""}>
+        <div class="word-lookup-card-heading">
+          <span class="eyebrow">${info ? "QUICK WORD · 网页内查词" : "BASIC TRANSLATION · 基础翻译"}</span>
+          ${draggable ? `<span class="word-lookup-drag-hint">⠿ 可拖动</span>` : ""}
+        </div>
         <button class="word-lookup-card-close" type="button" data-action="close-word-card" aria-label="收起查词卡片">×</button>
       </header>
       <div class="word-lookup-title">
@@ -3669,6 +3773,89 @@
     `;
   }
 
+  function wordCardBounds(card) {
+    const margin = window.innerWidth <= 620 ? 10 : 18;
+    const bottomReserved = window.innerWidth <= 860 ? 88 : 18;
+    const width = card.offsetWidth;
+    const height = card.offsetHeight;
+    return {
+      width,
+      height,
+      minLeft: margin,
+      maxLeft: Math.max(margin, window.innerWidth - width - margin),
+      minTop: margin,
+      maxTop: Math.max(margin, window.innerHeight - height - bottomReserved),
+    };
+  }
+
+  function positionWordLookupCard(card = floatingWordLookupCard) {
+    if (!card || card.hidden) return;
+    const bounds = wordCardBounds(card);
+    const saved = normalizeWordCardPosition(state.settings.wordCardPosition);
+    let left = bounds.maxLeft;
+    let top = bounds.minTop + Math.max(0, (bounds.maxTop - bounds.minTop) * 0.48);
+    if (saved) {
+      left = saved.x * window.innerWidth - bounds.width / 2;
+      top = saved.y * window.innerHeight - bounds.height / 2;
+    }
+    left = Math.min(bounds.maxLeft, Math.max(bounds.minLeft, left));
+    top = Math.min(bounds.maxTop, Math.max(bounds.minTop, top));
+    card.style.left = `${Math.round(left)}px`;
+    card.style.top = `${Math.round(top)}px`;
+    card.style.right = "auto";
+    card.style.bottom = "auto";
+  }
+
+  function saveWordCardPosition(card) {
+    if (!card || card.hidden) return;
+    const left = Number.parseFloat(card.style.left) || card.getBoundingClientRect().left;
+    const top = Number.parseFloat(card.style.top) || card.getBoundingClientRect().top;
+    state.settings.wordCardPosition = {
+      x: Math.min(1, Math.max(0, (left + card.offsetWidth / 2) / window.innerWidth)),
+      y: Math.min(1, Math.max(0, (top + card.offsetHeight / 2) / window.innerHeight)),
+    };
+    saveState();
+  }
+
+  function beginWordCardDrag(event) {
+    if (!event.isPrimary || floatingWordLookupCard.hidden
+      || (event.pointerType === "mouse" && event.button !== 0)
+      || event.target.closest("button, a, input, select, textarea")
+      || !event.target.closest("[data-word-card-drag-handle]")) return;
+    const rect = floatingWordLookupCard.getBoundingClientRect();
+    wordCardDrag = {
+      pointerId: event.pointerId,
+      card: floatingWordLookupCard,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+    };
+    floatingWordLookupCard.classList.add("is-dragging");
+    floatingWordLookupCard.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  }
+
+  function moveWordCardDrag(event) {
+    if (!wordCardDrag || event.pointerId !== wordCardDrag.pointerId) return;
+    const { card, offsetX, offsetY } = wordCardDrag;
+    const bounds = wordCardBounds(card);
+    const left = Math.min(bounds.maxLeft, Math.max(bounds.minLeft, event.clientX - offsetX));
+    const top = Math.min(bounds.maxTop, Math.max(bounds.minTop, event.clientY - offsetY));
+    card.style.left = `${Math.round(left)}px`;
+    card.style.top = `${Math.round(top)}px`;
+    card.style.right = "auto";
+    card.style.bottom = "auto";
+    event.preventDefault();
+  }
+
+  function finishWordCardDrag(event) {
+    if (!wordCardDrag || (event.pointerId != null && event.pointerId !== wordCardDrag.pointerId)) return;
+    const { card, pointerId } = wordCardDrag;
+    if (card.hasPointerCapture?.(pointerId)) card.releasePointerCapture?.(pointerId);
+    card.classList.remove("is-dragging");
+    saveWordCardPosition(card);
+    wordCardDrag = null;
+  }
+
   function showWordLookupCard(wordEn, basicZh = "") {
     if (!wordByEn.has(wordEn) && !basicZh) return false;
     const card = termDialog.open ? inlineWordLookupCard : floatingWordLookupCard;
@@ -3676,11 +3863,14 @@
     window.clearTimeout(wordLookupCloseTimer);
     inlineWordLookupCard.hidden = termDialog.open ? false : true;
     floatingWordLookupCard.hidden = termDialog.open ? true : false;
-    card.innerHTML = wordLookupMarkup(wordEn, basicZh);
+    card.innerHTML = wordLookupMarkup(wordEn, basicZh, card === floatingWordLookupCard);
     card.classList.remove("is-closing", "is-open");
     card.hidden = false;
     if (card === inlineWordLookupCard) termDialog.classList.add("has-word-card");
-    else document.documentElement.classList.add("word-card-visible");
+    else {
+      document.documentElement.classList.add("word-card-visible");
+      positionWordLookupCard(card);
+    }
     requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add("is-open")));
     return true;
   }
@@ -3920,6 +4110,7 @@
 
   function navigate(route, options = {}) {
     if (!pageMeta[route]) route = "today";
+    stopSpeech();
     closeWordLookupCard(true);
     const previousRoute = ui.route;
     const commit = () => {
@@ -4138,6 +4329,8 @@
         normalizeLiquidSettings(state.settings);
         state.settings.customSidebar = normalizeAccent(state.settings.customSidebar, "#0c2437");
         state.settings.customAccent = normalizeAccent(state.settings.customAccent);
+        state.settings.wordCardPosition = normalizeWordCardPosition(state.settings.wordCardPosition);
+        state.settings.autoCloseWordLookup = state.settings.autoCloseWordLookup !== false;
         state.settings.newLimit = [5, 10, 15, 20].includes(Number(state.settings.newLimit))
           ? Number(state.settings.newLimit)
           : defaultState.settings.newLimit;
@@ -4495,6 +4688,13 @@
     if (action === "import") document.getElementById("import-progress-file")?.click();
     if (action === "reset") resetProgress();
     if (action === "open-appearance") openAppearanceDialog();
+    if (action === "reset-word-card-position") {
+      state.settings.wordCardPosition = null;
+      saveState();
+      positionWordLookupCard();
+      renderSettings();
+      toast("查词卡已恢复右侧居中位置");
+    }
     if (action === "close-dialog") closeTermDialog();
     if (action === "close-and-study") {
       closeAllTermDialogs();
@@ -4620,6 +4820,13 @@
         scheduleAutoSpeak(term);
       }
     }
+    if (event.target.id === "auto-close-word-lookup") {
+      state.settings.autoCloseWordLookup = event.target.checked;
+      const label = event.target.closest(".speech-switch")?.querySelector("b");
+      if (label) label.textContent = event.target.checked ? "自动收起" : "保持打开";
+      saveState();
+      toast(event.target.checked ? "切换主卡时将自动收起查词卡" : "切换主卡时查词卡将保持打开");
+    }
     if (event.target.id === "new-limit-select") {
       state.settings.newLimit = Number(event.target.value);
       ensureSession();
@@ -4663,6 +4870,10 @@
   window.addEventListener("pointermove", moveStudyDrag, { passive: false });
   window.addEventListener("pointerup", finishStudyDrag);
   window.addEventListener("pointercancel", resetDraggedStudyCard);
+  floatingWordLookupCard.addEventListener("pointerdown", beginWordCardDrag);
+  window.addEventListener("pointermove", moveWordCardDrag, { passive: false });
+  window.addEventListener("pointerup", finishWordCardDrag);
+  window.addEventListener("pointercancel", finishWordCardDrag);
 
   document.addEventListener("input", handleInput);
   document.addEventListener("change", handleChange);
@@ -4744,6 +4955,7 @@
   sidebarBackdrop?.addEventListener("click", () => setSidebarOpen(false, { restoreFocus: true }));
   window.addEventListener("resize", () => {
     if (window.innerWidth > 860 && sidebar.classList.contains("open")) setSidebarOpen(false);
+    positionWordLookupCard();
   });
 
   document.getElementById("open-settings").addEventListener("click", () => {
@@ -4762,6 +4974,7 @@
   window.addEventListener("hashchange", () => {
     const route = location.hash.replace("#", "");
     if (pageMeta[route] && route !== ui.route) {
+      closeWordLookupCard(true);
       runRouteChange(() => {
         ui.route = route;
         render();

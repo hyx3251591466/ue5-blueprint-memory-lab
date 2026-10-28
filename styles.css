@@ -9829,3 +9829,16 @@ html[data-view="study"] .view-root {
     pointer-events: none;
   }
 }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (max-width: 860px) {
+  .library-toolbar .library-search-field input {
+    font-size: 13px !important;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}

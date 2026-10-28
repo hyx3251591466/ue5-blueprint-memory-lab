@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.3";
+  const APP_VERSION = "1.2.4";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -1922,6 +1922,49 @@
     return true;
   }
 
+  function canPerformStudySwipe(direction) {
+    if (studyHistoryIndex != null) {
+      if (direction === "back") return studyHistoryIndex > 0;
+      return true;
+    }
+    if (direction === "back") return studyHistory.length > 0;
+    if (state.session.focusPhase === "overview") return true;
+    if (ui.study.phase === "feedback") return true;
+    if (ui.study.phase === "question") return (state.session.focusQuizQueue || []).length > 1;
+    return false;
+  }
+
+  function skipCurrentStudyQuestion() {
+    const queue = state.session.focusQuizQueue || [];
+    if (queue.length <= 1) return false;
+    pushStudyHistory();
+    const skipped = queue.shift();
+    queue.push(skipped);
+    state.session.currentId = queue[0]?.id || null;
+    ui.study.phase = "question";
+    ui.study.question = null;
+    ui.study.feedback = null;
+    lastAutoSpokenTermId = null;
+    saveState();
+    renderStudy();
+    return true;
+  }
+
+  function performStudySwipe(direction) {
+    if (!canPerformStudySwipe(direction)) return false;
+    if (studyHistoryIndex != null) return showStudyHistory(direction);
+    if (direction === "back") return showStudyHistory(direction);
+    if (state.session.focusPhase === "overview") {
+      advanceStudyOverview();
+      return true;
+    }
+    if (ui.study.phase === "feedback") {
+      advanceStudyQueue();
+      return true;
+    }
+    return skipCurrentStudyQuestion();
+  }
+
   function renderStudySetup() {
     const plan = getSessionPlan();
     const limits = [10, 20, 30, 50, 0];
@@ -2123,7 +2166,7 @@
         <div class="focus-page view-enter">
           ${renderFocusHeader(overviewTerm, ids)}
           <section class="focus-stage" aria-label="基础通览卡片">${renderStudyLearn(overviewTerm)}</section>
-          <p class="focus-swipe-hint">${studyHistory.length ? "右滑回看上一张 · 左滑返回当前卡" : "卡片会持续强化记忆"}</p>
+          <p class="focus-swipe-hint">右滑回看上一张 · 左滑进入下一张</p>
         </div>
       `;
       document.getElementById("page-title").textContent = "专注背诵";
@@ -2160,7 +2203,7 @@
       <div class="focus-page view-enter">
           ${renderFocusHeader(term, quizQueue)}
         <section class="focus-stage" aria-label="当前背诵卡片">${card}</section>
-        <p class="focus-swipe-hint">${studyHistory.length ? "右滑回看上一张 · 左滑返回当前卡" : "完成几张后，可拖动卡片回看"}</p>
+        <p class="focus-swipe-hint">右滑回看上一张 · 左滑进入下一张</p>
       </div>
     `;
     document.getElementById("page-title").textContent = "专注背诵";
@@ -3743,9 +3786,7 @@
       return;
     }
     const direction = drag.dx > 0 ? "back" : "forward";
-    const canNavigate = direction === "back"
-      ? studyHistory.length > 0
-      : studyHistoryIndex != null;
+    const canNavigate = canPerformStudySwipe(direction);
     const shouldFly = canNavigate
       && (drag.horizontalRatio || 0) >= 0.22
       && (Math.abs(drag.dx) > 56 || Math.abs(drag.velocity) > 0.38);
@@ -3766,7 +3807,7 @@
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) {
       studyDrag = null;
-      showStudyHistory(direction);
+      performStudySwipe(direction);
       return;
     }
     const card = drag.card;
@@ -3779,7 +3820,7 @@
     card.style.transform = `translate3d(${exitX}px, ${drag.dy * 0.35}px, 0) rotate(${direction === "back" ? 9 : -9}deg) scale(0.95)`;
     card.style.opacity = "0.12";
     studyDrag = null;
-    window.setTimeout(() => showStudyHistory(direction), duration + 16);
+    window.setTimeout(() => performStudySwipe(direction), duration + 16);
   }
 
   function toast(message, options = {}) {

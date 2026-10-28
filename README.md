@@ -23,6 +23,10 @@
 | --- | --- |
 | ![滑动回看历史卡](screenshots/github-focus-history.png) | ![本地拆词翻译](screenshots/github-word-fallback.png) |
 
+| 独立学习设置 |
+| --- |
+| ![学习设置](screenshots/github-settings-desktop.png) |
+
 ### 手机端
 
 | 今日学习 | 侧边栏导航 | 词典筛选 |
@@ -31,13 +35,13 @@
 
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.2.4-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.4/Blueprint-Memory-Lab-v1.2.4-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.4.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.4/Blueprint-Memory-Lab-Web-v1.2.4.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.4/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.2.5-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.5/Blueprint-Memory-Lab-v1.2.5-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.5.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.5/Blueprint-Memory-Lab-Web-v1.2.5.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.5/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.2.4`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.2.5`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案
@@ -50,7 +54,9 @@ Android 版：
 - 可组合英译中、使用场景与拆词组义题；完整题目选项只使用本轮词条
 - 会话内间隔强化：每个词至少重现两次，答错会更快再次出现，最终结果只写入一次跨天复习计划
 - 专注卡支持全向跟手拖动与惯性滑出：右滑回看旧卡，左滑进入下一词
+- 右滑回看尚未作答的历史卡时可直接继续答题，不必中断本轮重来
 - 每日任务先复习后新学，单次背诵总量与每天新词量均可选择
+- 独立的“学习设置”页集中管理学习量、发音、外观、跨设备档案和清理进度
 - 加入今日词单后停留在当前页面；满额时可选择本次超额加入或顶替最后一位
 - 今日词单、已学词库与艾宾浩斯到期复习
 - 拆词查义以侧卡展开：词条详情旁并排显示，或从专注页旋转斜向滑出
@@ -58,6 +64,7 @@ Android 版：
 - 分层的词条详情导航，关闭子词义后恢复原词条、滚动位置与展开状态
 - 首次使用五步教程、手机端引导和全局主题色彩过渡
 - 学习进度 JSON 导入导出，可跨设备恢复阶段、到期时间、联想笔记和外观设置
+- 场景串联左侧索引在桌面滚动时固定，手机端保持单层自然滚动
 - 手机端词典筛选改为分区网格，侧栏打开后置顶并支持点击遮罩或按 Esc 自动收起
 - 移动端搜索框固定为 13px 字号，避免浏览器自动放大造成突兀
 - 444 个多词组节点拆词记忆

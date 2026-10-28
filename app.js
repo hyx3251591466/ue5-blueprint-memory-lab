@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.4";
+  const APP_VERSION = "1.2.5";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -350,6 +350,7 @@
     scenarios: { title: "场景串联", kicker: "SCENARIOS" },
     tutorials: { title: "教程查询", kicker: "EPIC LEARNING" },
     memory: { title: "记忆路线", kicker: "MEMORY ROUTE" },
+    settings: { title: "学习设置", kicker: "LEARNING SETTINGS" },
   };
 
   const GUIDE_STEPS = [
@@ -384,7 +385,7 @@
     {
       kicker: "05 · 跨设备",
       title: "用 JSON 带走完整学习档案",
-      body: "在“记忆路线”里导出学习进度，再到手机或另一台设备导入，即可恢复复习阶段、到期日期、联想笔记和外观设置。",
+      body: "在“学习设置”里导出学习进度，再到手机或另一台设备导入，即可恢复复习阶段、到期日期、联想笔记和外观设置。",
       note: "导入前会提示覆盖范围，建议先导出一份当前设备的备份。",
       visual: `<div class="guide-backup-file"><span>JSON</span><strong>blueprint-memory-${dateKey()}.json</strong><small>学习阶段 · 复习时间 · 个人笔记</small></div>`,
     },
@@ -477,6 +478,7 @@
   let modalScrollY = 0;
   let wordLookupCloseTimer = 0;
   let pendingTodayAdd = null;
+  let routeTransitionActive = false;
   const studyHistory = [];
   let studyHistoryIndex = null;
   let studyDrag = null;
@@ -762,15 +764,22 @@
 
   function runRouteChange(commit, options = {}) {
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (options.animate === false || reduceMotion || typeof document.startViewTransition !== "function") {
+    if (options.animate === false || reduceMotion || routeTransitionActive
+      || typeof document.startViewTransition !== "function") {
       commit();
       return null;
     }
     try {
+      routeTransitionActive = true;
       const transition = document.startViewTransition(commit);
-      transition.finished.catch(() => {});
+      transition.finished
+        .catch(() => {})
+        .finally(() => {
+          routeTransitionActive = false;
+        });
       return transition;
     } catch {
+      routeTransitionActive = false;
       commit();
       return null;
     }
@@ -1618,6 +1627,7 @@
     if (ui.route === "scenarios") renderScenarios();
     if (ui.route === "tutorials") renderTutorials();
     if (ui.route === "memory") renderMemory();
+    if (ui.route === "settings") renderSettings();
 
     viewRoot.querySelector(".view-enter")?.classList.add("view-enter");
     updateTopStats();
@@ -1634,7 +1644,7 @@
     });
     const mobileMore = document.getElementById("mobile-more");
     if (mobileMore) {
-      const moreActive = ["scenarios", "tutorials", "memory"].includes(ui.route);
+      const moreActive = ["scenarios", "tutorials", "memory", "settings"].includes(ui.route);
       mobileMore.classList.toggle("active", moreActive);
       mobileMore.setAttribute("aria-current", moreActive ? "page" : "false");
     }
@@ -1656,8 +1666,8 @@
     const done = state.session.completedIds.filter((id) => planIds.has(id)).length;
     document.getElementById("sidebar-focus").textContent = current ? current.en : "今日队列已完成";
     document.getElementById("sidebar-queue-copy").textContent = current
-      ? `本次 ${plan.size} 张 · 到期复习优先`
-      : `今日完成 ${done} 张，下一批复习会按记忆间隔出现。`;
+      ? `本次 ${plan.size} 词 · 到期复习优先`
+      : `今日完成 ${done} 词，下一批复习会按记忆间隔出现。`;
     document.getElementById("sidebar-progress-bar").style.width = `${total ? Math.min(100, (done / total) * 100) : 0}%`;
   }
 
@@ -1674,7 +1684,7 @@
     const knownCount = state.session.ratings.filter((item) => item.rating === "known").length;
     const recallRate = state.session.ratings.length ? Math.round((knownCount / state.session.ratings.length) * 100) : 0;
     const nextReview = upcomingReviewBars().slice(1, 3).reduce((sum, day) => sum + day.count, 0);
-    const sessionLimitLabel = state.settings.sessionLimit > 0 ? `${state.settings.sessionLimit} 张` : "全部";
+    const sessionLimitLabel = state.settings.sessionLimit > 0 ? `${state.settings.sessionLimit} 词` : "全部";
 
     viewRoot.innerHTML = `
       <div class="view-enter">
@@ -1703,7 +1713,7 @@
                 <span>今日完成</span>
               </div>
             </div>
-            <p>${done} / ${total || 0} 张 · 本次先复习、后新学</p>
+            <p>${done} / ${total || 0} 词 · 本次先复习、后新学</p>
           </div>
         </section>
 
@@ -1720,8 +1730,8 @@
             <span class="eyebrow">START HERE · RECITATION</span>
             <h2 id="focus-launch-title">背诵入口在<em>这里</em></h2>
             <p>${plan.reviewIncluded
-              ? `先完成 ${plan.reviewIncluded} 张到期复习${plan.newIncluded ? `，再学习 ${plan.newIncluded} 张新词` : ""}。`
-              : `今天没有优先到期项，将直接学习 ${plan.newIncluded} 张新词。`}</p>
+              ? `先完成 ${plan.reviewIncluded} 个到期词${plan.newIncluded ? `，再学习 ${plan.newIncluded} 个新词` : ""}。`
+              : `今天没有优先到期项，将直接学习 ${plan.newIncluded} 个新词。`}</p>
           </div>
           <div class="focus-launch-stats" aria-label="本次任务构成">
             <div><span>先复习</span><strong>${plan.reviewIncluded}</strong></div>
@@ -1867,6 +1877,38 @@
     studyHistoryIndex = null;
   }
 
+  function historySnapshotCanResume(snapshot) {
+    if (!snapshot || snapshot.type !== "quiz" || snapshot.feedback) return false;
+    return (state.session.focusQuizQueue || []).some((entry) => (
+      Number(entry.id) === Number(snapshot.termId)
+      && Number(entry.attempt || 1) === Number(snapshot.attempt || 1)
+    ));
+  }
+
+  function resumeHistoryQuestion() {
+    if (studyHistoryIndex == null) return false;
+    const snapshot = studyHistory[studyHistoryIndex];
+    if (!historySnapshotCanResume(snapshot)) return false;
+    const queue = state.session.focusQuizQueue || [];
+    const queueIndex = queue.findIndex((entry) => (
+      Number(entry.id) === Number(snapshot.termId)
+      && Number(entry.attempt || 1) === Number(snapshot.attempt || 1)
+    ));
+    if (queueIndex < 0) return false;
+    const [entry] = queue.splice(queueIndex, 1);
+    queue.unshift(entry);
+    state.session.currentId = snapshot.termId;
+    ui.study.phase = "question";
+    ui.study.question = structuredClone(snapshot.question);
+    ui.study.feedback = null;
+    ui.study.taughtId = null;
+    studyHistoryIndex = null;
+    lastAutoSpokenTermId = null;
+    saveState();
+    renderStudy();
+    return true;
+  }
+
   function renderStudyHistoryCard() {
     if (studyHistoryIndex == null || !studyHistory[studyHistoryIndex]) {
       studyHistoryIndex = null;
@@ -1884,8 +1926,9 @@
       : (snapshot.feedback
         ? renderStudyFeedback(term, snapshot.question, snapshot.feedback)
         : renderStudyQuestion(term, snapshot.question));
+    const canResume = historySnapshotCanResume(snapshot);
     viewRoot.innerHTML = `
-      <div class="focus-page view-enter is-history-view">
+      <div class="focus-page view-enter is-history-view ${canResume ? "can-resume" : ""}">
         <header class="focus-header focus-history-header">
           <button class="focus-exit" type="button" data-action="return-live-study">回到当前卡</button>
           <div class="focus-session-title">
@@ -1896,11 +1939,13 @@
           <div class="focus-progress"><span style="width:${studyHistory.length ? ((studyHistoryIndex + 1) / studyHistory.length) * 100 : 0}%"></span></div>
         </header>
         <main class="focus-stage">${card}</main>
-        <p class="focus-history-hint">右滑查看更多旧卡 · 左滑回到当前卡</p>
+        <p class="focus-history-hint">${canResume
+          ? "这张题尚未作答，可以直接选择答案继续"
+          : "右滑查看更多旧卡 · 左滑回到当前卡"}</p>
       </div>
     `;
     viewRoot.querySelectorAll(".focus-card button, .focus-card input, .focus-card select").forEach((element) => {
-      element.disabled = true;
+      element.disabled = !(canResume && element.matches("[data-study-answer]"));
     });
   }
 
@@ -1986,11 +2031,11 @@
           </div>
 
           <div class="focus-setup-block">
-            <div class="focus-setup-label"><strong>本次背诵总量</strong><small>到期复习会占用最前面的名额。</small></div>
-            <div class="focus-limit-grid" role="group" aria-label="本次背诵总量">
+            <div class="focus-setup-label"><strong>本次词汇上限</strong><small>这个数字表示本轮不同单词的数量，不是答题次数。</small></div>
+            <div class="focus-limit-grid" role="group" aria-label="本次词汇上限">
               ${limits.map((limit) => `
                 <button type="button" data-study-limit="${limit}" class="${state.settings.sessionLimit === limit ? "active" : ""}" aria-pressed="${state.settings.sessionLimit === limit}">
-                  <strong>${limit || "全部"}</strong><span>${limit ? "张" : "剩余"}</span>
+                  <strong>${limit || "全部"}</strong><span>${limit ? "词" : "词汇"}</span>
                 </button>
               `).join("")}
             </div>
@@ -2015,7 +2060,7 @@
           </div>
 
           <button class="button button-primary focus-start-button" type="button" data-action="begin-focus" ${plan.size ? "" : "disabled"}>
-            开始基础通览 <span>${plan.size} 个词 · 两遍 →</span>
+            开始基础通览 <span>${plan.size} 个词 · 基础+强化 →</span>
           </button>
         </section>
       </div>
@@ -2109,10 +2154,10 @@
         <div class="focus-repeat-cue ${feedback.finalized ? "is-complete" : ""}">
           ${feedback.finalized
             ? "本轮强化次数已完成，将按照最终评价安排下一次跨天复习。"
-            : `这个词会在约 ${feedback.nextGap} 张后再次出现，先让记忆沉淀一下。`}
+            : `这个词会在约 ${feedback.nextGap} 个词后再次出现，先让记忆沉淀一下。`}
         </div>
         <div class="focus-next-row">
-          <button class="button button-primary focus-primary-action" type="button" data-action="study-next">${feedback.finalized ? "继续下一张 →" : "继续，稍后再见 →"}</button>
+          <button class="button button-primary focus-primary-action" type="button" data-action="study-next">${feedback.finalized ? "继续下一题 →" : "继续，稍后再见 →"}</button>
           <button class="button button-ghost" type="button" data-term-id="${term.id}">查看完整词条</button>
         </div>
       </article>
@@ -2166,7 +2211,7 @@
         <div class="focus-page view-enter">
           ${renderFocusHeader(overviewTerm, ids)}
           <section class="focus-stage" aria-label="基础通览卡片">${renderStudyLearn(overviewTerm)}</section>
-          <p class="focus-swipe-hint">右滑回看上一张 · 左滑进入下一张</p>
+          <p class="focus-swipe-hint">右滑回看上一词 · 左滑进入下一词</p>
         </div>
       `;
       document.getElementById("page-title").textContent = "专注背诵";
@@ -2203,7 +2248,7 @@
       <div class="focus-page view-enter">
           ${renderFocusHeader(term, quizQueue)}
         <section class="focus-stage" aria-label="当前背诵卡片">${card}</section>
-        <p class="focus-swipe-hint">右滑回看上一张 · 左滑进入下一张</p>
+        <p class="focus-swipe-hint">右滑回看上一题 · 左滑进入下一题</p>
       </div>
     `;
     document.getElementById("page-title").textContent = "专注背诵";
@@ -2720,7 +2765,7 @@
       ? dueIds.slice(0, state.settings.sessionLimit)
       : dueIds;
     startFocusSession({ ids: limitedDueIds });
-    toast(`已进入到期复习：本轮 ${limitedDueIds.length} 张`);
+    toast(`已进入到期复习：本轮 ${limitedDueIds.length} 词`);
   }
 
   function renderFlashcard(term, queue) {
@@ -2843,7 +2888,7 @@
         <div class="completion-mark" aria-hidden="true">✓</div>
         <h3>${done ? "今天的回忆队列已完成" : "今天还没有开始"}</h3>
         <p>${done
-          ? `完成 ${done} 张，回忆正确率 ${recallRate}%。下一次复习已按艾宾浩斯节奏 5 分钟、30 分钟、12 小时、1–30 天排入未来。`
+          ? `完成 ${done} 词，回忆正确率 ${recallRate}%。下一次复习已按艾宾浩斯节奏 5 分钟、30 分钟、12 小时、1–30 天排入未来。`
           : "点击“继续今日队列”开始第一轮主动回忆。新词和到期复习会一起组成每日任务。"
         }</p>
         <div class="hero-actions">
@@ -3327,42 +3372,102 @@
               </div>
             </section>
 
-            <section class="side-card backup-card" id="progress-transfer">
-              <div class="side-card-head"><h3>跨设备学习档案</h3><span class="tag">JSON</span></div>
-              <p>导出后可在手机、平板或另一台电脑导入，学习阶段、到期时间、联想笔记和外观设置都会恢复。</p>
-              <div class="backup-summary">
-                <span><strong>${stats.touched}</strong> 已学词条</span>
-                <span><strong>${stats.due}</strong> 当前到期</span>
+            <section class="side-card memory-settings-link">
+              <span class="eyebrow">LEARNING CONTROLS</span>
+              <h3>学习节奏与显示偏好已独立设置</h3>
+              <p>每天新词上限、单次背诵词数、发音、外观和跨设备档案统一放在“学习设置”，不再混在记忆路线里。</p>
+              <div class="profile-actions">
+                <button class="button button-primary" type="button" data-route="settings">打开学习设置</button>
+                <button class="button" type="button" data-action="open-focus-setup">配置本轮背诵</button>
               </div>
-              <div class="backup-actions">
-                <button class="button button-primary" type="button" data-action="export">下载 JSON 备份</button>
-                <button class="button" type="button" data-action="import">导入 JSON 文件</button>
-              </div>
-              <small>导入会覆盖当前设备进度，建议先导出一次备份。</small>
             </section>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
 
-            <section class="side-card" id="learning-settings">
-              <div class="side-card-head"><h3>学习设置</h3><span class="tag">SETTINGS</span></div>
+  function renderSettings() {
+    const stats = getStats();
+    const newLimitLabel = `${state.settings.newLimit} 词 / 天`;
+    const sessionLimitLabel = state.settings.sessionLimit > 0
+      ? `${state.settings.sessionLimit} 词 / 次`
+      : "全部剩余词";
+    const paletteName = APPEARANCE_PALETTES[state.settings.palette]?.name || "深海蓝图";
+    const appearanceLabel = [
+      paletteName,
+      state.settings.theme === "dark" ? "深色" : "浅色",
+      state.settings.liquidGlass ? "液态玻璃" : (GLASS_LABELS[state.settings.glass] || GLASS_LABELS.off),
+    ].join(" · ");
+    const masteredPercent = stats.touched
+      ? Math.min(100, Math.round((stats.mastered / stats.touched) * 100))
+      : 0;
+
+    viewRoot.innerHTML = `
+      <div class="view-enter">
+        <div class="page-intro settings-page-intro">
+          <div>
+            <span class="eyebrow">LEARNING CONTROL CENTER</span>
+            <h2>把学习节奏和显示偏好，<br>集中在这里调整</h2>
+            <p>设置只改变学习方式，不会打乱已经保存的到期时间。记忆曲线与概念路线保留在“记忆路线”中。</p>
+          </div>
+          <div class="intro-actions">
+            <button class="button button-primary" type="button" data-action="start-focus">开始本轮背诵</button>
+            <button class="button" type="button" data-route="memory">查看记忆路线</button>
+          </div>
+        </div>
+
+        <div class="settings-layout" id="learning-settings">
+          <div class="settings-main-stack">
+            <section class="side-card settings-section">
+              <div class="settings-section-head">
+                <div>
+                  <span class="eyebrow">STUDY LOAD</span>
+                  <h3>学习量与节奏</h3>
+                  <p>这里决定每天加入多少新词，以及每轮背诵准备多少个不同单词。</p>
+                </div>
+                <span class="tag">01</span>
+              </div>
+              <div class="settings-summary-strip">
+                <div class="settings-summary-item">
+                  <span>每天新词</span>
+                  <strong>${escapeHtml(newLimitLabel)}</strong>
+                </div>
+                <div class="settings-summary-item">
+                  <span>单次总量</span>
+                  <strong>${escapeHtml(sessionLimitLabel)}</strong>
+                </div>
+                <div class="settings-summary-item">
+                  <span>当前到期</span>
+                  <strong>${stats.due} 词</strong>
+                </div>
+              </div>
               <div class="settings-panel">
-                <button class="settings-appearance-entry" type="button" data-action="open-appearance">
-                  <span>
-                    <strong>外观与配色</strong>
-                    <small>${escapeHtml(APPEARANCE_PALETTES[state.settings.palette]?.name || "深海蓝图")} · ${state.settings.theme === "dark" ? "深色" : "浅色"} · ${state.settings.liquidGlass ? "液态玻璃" : (GLASS_LABELS[state.settings.glass] || GLASS_LABELS.off)}</small>
-                  </span>
-                  <span aria-hidden="true">调整 →</span>
-                </button>
                 <div class="setting-row">
-                  <div><strong>每天新词上限</strong><small>到期复习会计入总任务，不占用此上限。</small></div>
+                  <div><strong>每天新词上限</strong><small>到期复习不计入此上限；每天开始新学前仍会优先复习到期词。</small></div>
                   <select id="new-limit-select" aria-label="每天新词上限">
                     ${[5, 10, 15, 20].map((count) => `<option value="${count}" ${state.settings.newLimit === count ? "selected" : ""}>${count} 词 / 天</option>`).join("")}
                   </select>
                 </div>
                 <div class="setting-row">
-                  <div><strong>单次背诵总量</strong><small>到期复习优先占用名额，再补入新词；也可以选择“全部”。</small></div>
+                  <div><strong>单次背诵词数</strong><small>表示本轮不同单词的数量；我会优先放入到期复习，再补入新词。</small></div>
                   <select id="session-limit-select" aria-label="单次背诵总量">
-                    ${[10, 20, 30, 50, 0].map((count) => `<option value="${count}" ${state.settings.sessionLimit === count ? "selected" : ""}>${count ? `${count} 张 / 次` : "全部剩余"}</option>`).join("")}
+                    ${[10, 20, 30, 50, 0].map((count) => `<option value="${count}" ${state.settings.sessionLimit === count ? "selected" : ""}>${count ? `${count} 词 / 次` : "全部剩余词"}</option>`).join("")}
                   </select>
                 </div>
+              </div>
+            </section>
+
+            <section class="side-card settings-section">
+              <div class="settings-section-head">
+                <div>
+                  <span class="eyebrow">PRONUNCIATION</span>
+                  <h3>发音与朗读</h3>
+                  <p>蓝图词组会整段播放；在线音频不可用时自动切换到设备里的英文语音。</p>
+                </div>
+                <span class="tag">02</span>
+              </div>
+              <div class="settings-panel">
                 <div class="setting-row">
                   <div><strong>发音来源</strong><small>词组优先整段播放，不再逐词拼接；有道不可用时整句切换系统语音。</small></div>
                   <select id="speech-engine" aria-label="英文发音来源">
@@ -3381,28 +3486,81 @@
                   </select>
                 </div>
                 <div class="setting-row">
-                  <div><strong>出现新卡时自动朗读</strong><small>切换单词卡后自动播放一次英文发音。</small></div>
+                  <div><strong>出现新词时自动朗读</strong><small>切换背诵卡片后自动播放一次英文发音。</small></div>
                   <label class="speech-switch">
                     <input id="auto-speak" type="checkbox" ${state.settings.autoSpeak ? "checked" : ""}>
                     <span aria-hidden="true"></span>
                     <b>${state.settings.autoSpeak ? "已开启" : "已关闭"}</b>
                   </label>
                 </div>
-                <div class="setting-row">
-                  <div><strong>长期记忆</strong><small>达到第 5 阶段及以上的词条数量。</small></div>
-                  <strong>${stats.mastered} / ${terms.length}</strong>
-                </div>
-                <div class="setting-row">
-                  <div><strong>学习档案</strong><small>导出 JSON 后可在其他浏览器恢复。</small></div>
-                </div>
               </div>
               <div class="profile-actions">
-                <button class="button button-soft" type="button" data-speak="Blueprint Class">试听英文朗读</button>
-                <button class="button" type="button" data-action="export">导出进度</button>
-                <button class="button" type="button" data-action="import">导入进度</button>
-                <button class="button button-danger" type="button" data-action="reset">重置进度</button>
-                <input id="import-progress-file" type="file" accept="application/json" hidden>
+                <button class="button button-soft" type="button" data-speak="Blueprint Class">试听 Blueprint Class</button>
               </div>
+            </section>
+          </div>
+
+          <aside class="settings-side-stack">
+            <section class="side-card settings-section settings-appearance-section">
+              <div class="settings-section-head">
+                <div>
+                  <span class="eyebrow">APPEARANCE</span>
+                  <h3>外观与配色</h3>
+                  <p>主题、侧边栏配色、玻璃质感和液态玻璃参数都在独立面板中调整。</p>
+                </div>
+                <span class="tag">03</span>
+              </div>
+              <button class="settings-appearance-entry" type="button" data-action="open-appearance">
+                <span>
+                  <strong>当前外观</strong>
+                  <small>${escapeHtml(appearanceLabel)}</small>
+                </span>
+                <span aria-hidden="true">调整 →</span>
+              </button>
+            </section>
+
+            <section class="side-card backup-card settings-section" id="progress-transfer">
+              <div class="settings-section-head">
+                <div>
+                  <span class="eyebrow">CROSS DEVICE</span>
+                  <h3>跨设备学习档案</h3>
+                  <p>导出一个 JSON，在手机、平板或另一台电脑恢复完整学习状态。</p>
+                </div>
+                <span class="tag">JSON</span>
+              </div>
+              <div class="backup-summary">
+                <span><strong>${stats.touched}</strong> 已学词条</span>
+                <span><strong>${stats.due}</strong> 当前到期</span>
+              </div>
+              <div class="backup-actions">
+                <button class="button button-primary" type="button" data-action="export">下载 JSON 备份</button>
+                <button class="button" type="button" data-action="import">导入 JSON 文件</button>
+              </div>
+              <small>导入会覆盖当前设备进度，建议先导出一次备份。</small>
+            </section>
+
+            <section class="side-card settings-section">
+              <div class="settings-section-head">
+                <div>
+                  <span class="eyebrow">MEMORY STATUS</span>
+                  <h3>学习档案概览</h3>
+                  <p>设置调整不会清空下面的数据。</p>
+                </div>
+                <span class="tag">LOCAL</span>
+              </div>
+              <div class="settings-metrics">
+                <div><span>已学词条</span><strong>${stats.touched}</strong></div>
+                <div><span>长期记忆</span><strong>${stats.mastered}</strong></div>
+                <div><span>连续学习</span><strong>${stats.streak} 天</strong></div>
+              </div>
+              <div class="settings-mastery">
+                <div><span>长期记忆占比</span><strong>${masteredPercent}%</strong></div>
+                <div class="settings-mastery-track" aria-hidden="true"><span style="width:${masteredPercent}%"></span></div>
+              </div>
+              <div class="profile-actions settings-danger-actions">
+                <button class="button button-danger" type="button" data-action="reset">重置全部学习进度</button>
+              </div>
+              <input id="import-progress-file" type="file" accept="application/json" hidden>
             </section>
           </aside>
         </div>
@@ -4193,6 +4351,7 @@
 
     const studyAnswerButton = event.target.closest("button[data-study-answer]");
     if (studyAnswerButton) {
+      if (viewRoot.querySelector(".focus-page.is-history-view") && !resumeHistoryQuestion()) return;
       answerStudyQuestion(studyAnswerButton.dataset.studyAnswer);
       return;
     }
@@ -4406,8 +4565,8 @@
     if (event.target.id === "session-limit-select") {
       state.settings.sessionLimit = Number(event.target.value);
       saveState();
-      renderMemory();
-      toast(`本次背诵总量已改为 ${state.settings.sessionLimit || "全部"}`);
+      renderSettings();
+      toast(`本次背诵词数已改为 ${state.settings.sessionLimit || "全部"}`);
     }
   }
 
@@ -4523,13 +4682,11 @@
   });
 
   document.getElementById("open-settings").addEventListener("click", () => {
-    navigate("memory");
-    requestAnimationFrame(() => document.getElementById("learning-settings")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    navigate("settings");
   });
 
   document.querySelector(".avatar-button").addEventListener("click", () => {
-    navigate("memory");
-    requestAnimationFrame(() => document.getElementById("learning-settings")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    navigate("settings");
   });
 
   if ("speechSynthesis" in window) {

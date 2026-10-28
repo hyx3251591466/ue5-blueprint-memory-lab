@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.5";
+  const APP_VERSION = "1.2.6";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -496,6 +496,9 @@
       normalizeLiquidSettings(settings);
       settings.customSidebar = normalizeAccent(settings.customSidebar, "#0c2437");
       settings.customAccent = normalizeAccent(settings.customAccent);
+      if (!["youdao", "baidu", "system"].includes(settings.speechEngine)) {
+        settings.speechEngine = "youdao";
+      }
       settings.sessionLimit = [10, 20, 30, 50, 0].includes(Number(settings.sessionLimit))
         ? Number(settings.sessionLimit)
         : 20;
@@ -1028,6 +1031,11 @@
     return `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(normalizeSpeechText(text))}&type=1`;
   }
 
+  function baiduAudioUrl(text) {
+    const rate = Math.min(5, Math.max(2, Math.round((Number(state.settings.speechRate) || 1) * 3)));
+    return `https://fanyi.baidu.com/gettts?lan=en&spd=${rate}&text=${encodeURIComponent(normalizeSpeechText(text))}&source=web`;
+  }
+
   function clearSpeakingButtons() {
     document.querySelectorAll(".speak-button.is-speaking").forEach((button) => {
       button.classList.remove("is-speaking");
@@ -1050,6 +1058,7 @@
       toast("当前浏览器不支持语音朗读，请使用最新版 Edge 或 Chrome。");
       return;
     }
+    if (!speechVoices.length) refreshSpeechVoices();
     const clean = normalizeSpeechText(text);
     if (!clean) return;
     window.speechSynthesis.cancel();
@@ -1072,23 +1081,36 @@
     window.speechSynthesis.speak(utterance);
   }
 
-  function playYoudaoAudio(text) {
+  function playRemoteAudio(text, source) {
     return new Promise((resolve, reject) => {
-      const audio = new Audio(youdaoAudioUrl(text));
+      const url = source === "baidu" ? baiduAudioUrl(text) : youdaoAudioUrl(text);
+      const audio = new Audio(url);
+      youdaoAudio?.pause?.();
       youdaoAudio = audio;
       audio.preload = "auto";
+      let settled = false;
       const timeout = window.setTimeout(() => {
         audio.pause?.();
-        reject(new Error("有道发音请求超时"));
-      }, 3000);
+        finish(reject, new Error(`${source === "baidu" ? "百度" : "有道"}发音请求超时`));
+      }, source === "baidu" ? 4500 : 2200);
       const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
         window.clearTimeout(timeout);
         callback(value);
       };
       audio.addEventListener("ended", () => finish(resolve), { once: true });
-      audio.addEventListener("error", () => finish(reject, new Error("有道发音不可用")), { once: true });
+      audio.addEventListener("error", () => finish(reject, new Error(`${source === "baidu" ? "百度" : "有道"}发音不可用`)), { once: true });
       audio.play().catch((error) => finish(reject, error));
     });
+  }
+
+  function playYoudaoAudio(text) {
+    return playRemoteAudio(text, "youdao");
+  }
+
+  function playBaiduAudio(text) {
+    return playRemoteAudio(text, "baidu");
   }
 
   async function speakYoudao(text, trigger = null) {
@@ -1104,9 +1126,36 @@
       if (token === youdaoPlaybackToken) clearSpeakingButtons();
     } catch {
       if (token !== youdaoPlaybackToken) return;
+      try {
+        await playBaiduAudio(clean);
+        if (token === youdaoPlaybackToken) clearSpeakingButtons();
+      } catch {
+        if (token !== youdaoPlaybackToken) return;
+        if (!youdaoFallbackNotified) {
+          youdaoFallbackNotified = true;
+          toast("在线整句发音暂时不可用，已切换到系统英文语音");
+        }
+        speakSystem(clean, trigger);
+      }
+    }
+  }
+
+  async function speakBaidu(text, trigger = null) {
+    const clean = normalizeSpeechText(text);
+    if (!clean) return;
+    const token = ++youdaoPlaybackToken;
+    youdaoAudio?.pause?.();
+    clearSpeakingButtons();
+    trigger?.classList.add("is-speaking");
+    trigger?.setAttribute("aria-pressed", "true");
+    try {
+      await playBaiduAudio(clean);
+      if (token === youdaoPlaybackToken) clearSpeakingButtons();
+    } catch {
+      if (token !== youdaoPlaybackToken) return;
       if (!youdaoFallbackNotified) {
         youdaoFallbackNotified = true;
-        toast("有道发音暂时不可用，已切换到系统英文语音");
+        toast("百度整句发音暂时不可用，已切换到系统英文语音");
       }
       speakSystem(clean, trigger);
     }
@@ -1117,6 +1166,10 @@
     if (!clean) return;
     if (state.settings.speechEngine === "youdao") {
       speakYoudao(clean, trigger);
+      return;
+    }
+    if (state.settings.speechEngine === "baidu") {
+      speakBaidu(clean, trigger);
       return;
     }
     youdaoPlaybackToken += 1;
@@ -3463,15 +3516,16 @@
                 <div>
                   <span class="eyebrow">PRONUNCIATION</span>
                   <h3>发音与朗读</h3>
-                  <p>蓝图词组会整段播放；在线音频不可用时自动切换到设备里的英文语音。</p>
+                  <p>蓝图词组始终整段连续播放；有道不支持的游戏术语会自动交给百度整句发音，在线服务都失败时再用系统语音。</p>
                 </div>
                 <span class="tag">02</span>
               </div>
               <div class="settings-panel">
                 <div class="setting-row">
-                  <div><strong>发音来源</strong><small>词组优先整段播放，不再逐词拼接；有道不可用时整句切换系统语音。</small></div>
+                  <div><strong>发音来源</strong><small>推荐“有道优先”：适合单词，也能自动补齐有道不支持的长词组。</small></div>
                   <select id="speech-engine" aria-label="英文发音来源">
-                    <option value="youdao" ${state.settings.speechEngine === "youdao" ? "selected" : ""}>有道词典在线发音</option>
+                    <option value="youdao" ${state.settings.speechEngine === "youdao" ? "selected" : ""}>有道优先 · 百度整句兜底</option>
+                    <option value="baidu" ${state.settings.speechEngine === "baidu" ? "selected" : ""}>百度翻译整句发音</option>
                     <option value="system" ${state.settings.speechEngine === "system" ? "selected" : ""}>系统英文语音</option>
                   </select>
                 </div>
@@ -4538,7 +4592,12 @@
       state.settings.speechEngine = event.target.value;
       saveState();
       refreshSpeechVoices();
-      toast(state.settings.speechEngine === "youdao" ? "已切换到有道词典发音" : "已切换到系统英文语音");
+      const speechEngineLabel = state.settings.speechEngine === "youdao"
+        ? "智能整句发音：有道优先，百度兜底"
+        : state.settings.speechEngine === "baidu"
+          ? "已切换到百度翻译整句发音"
+          : "已切换到系统英文语音";
+      toast(speechEngineLabel);
     }
     if (event.target.id === "speech-rate") {
       state.settings.speechRate = Number(event.target.value);

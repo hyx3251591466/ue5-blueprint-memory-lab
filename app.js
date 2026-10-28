@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.8";
+  const APP_VERSION = "1.2.9";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -303,7 +303,7 @@
     jade: { name: "翡翠绿", note: "柔和自然", colorA: "#143b32", colorB: "#73d0ae", sidebarB: "#0d2923" },
     iris: { name: "鸢尾紫", note: "创意夜间", colorA: "#24223f", colorB: "#b3a8ff", sidebarB: "#17162e" },
     graphite: { name: "雾银灰", note: "低刺激阅读", colorA: "#27343a", colorB: "#a8c1cd", sidebarB: "#192529" },
-    custom: { name: "自定义", note: "自选侧栏与强调色", colorA: "#0c2437", colorB: "#2d6cdf", sidebarB: "#071725" },
+    custom: { name: "自定义", note: "全界面联动或单独调色", colorA: "#0c2437", colorB: "#2d6cdf", sidebarB: "#071725" },
   };
   const GLASS_MODES = new Set(["off", "soft", "strong"]);
   const GLASS_LABELS = {
@@ -376,7 +376,7 @@
       kicker: "02 · 专注卡片",
       title: "一次只看一张卡",
       body: "所有背诵动作都在独立页面完成。每个词至少再次出现一次，答错会更快回炉，形成会话内的小间隔重复。",
-      note: "右上角显示本次进度，左侧退出会保留学习档案。",
+      note: "右上角显示本次进度；中途退出会暂停本轮，下次进入可选择继续或重新开始。",
       visual: `<div class="guide-mini-card"><small>FOCUS · 04 / 20</small><strong>Blueprint Class</strong><span>这个蓝图类最常用于什么场景？</span></div>`,
     },
     {
@@ -418,6 +418,7 @@
       liquidGloss: "soft",
       customSidebar: "#0c2437",
       customAccent: "#2d6cdf",
+      customThemeMode: "full",
       wordCardPosition: null,
       autoCloseWordLookup: true,
       speechRate: 1,
@@ -497,6 +498,8 @@
   const studyHistory = [];
   let studyHistoryIndex = null;
   let studyDrag = null;
+  let studyEntryApproved = false;
+  let pendingFocusStartOptions = null;
 
   let state = loadState();
   applyTheme();
@@ -511,6 +514,9 @@
       normalizeLiquidSettings(settings);
       settings.customSidebar = normalizeAccent(settings.customSidebar, "#0c2437");
       settings.customAccent = normalizeAccent(settings.customAccent);
+      settings.customThemeMode = ["full", "accent"].includes(settings.customThemeMode)
+        ? settings.customThemeMode
+        : "full";
       settings.wordCardPosition = normalizeWordCardPosition(settings.wordCardPosition);
       settings.autoCloseWordLookup = settings.autoCloseWordLookup !== false;
       if (!["youdao", "baidu", "system"].includes(settings.speechEngine)) {
@@ -565,6 +571,9 @@
 
   function saveState() {
     try {
+      if (state?.session?.focusActive) {
+        state.session.focusResumeState = captureStudyResumeState();
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       toast("浏览器无法保存进度，请检查本地存储权限。");
@@ -710,6 +719,7 @@
     const root = document.documentElement;
     root.dataset.theme = theme;
     root.dataset.palette = palette;
+    root.dataset.customScope = palette === "custom" ? state.settings.customThemeMode : "off";
     root.dataset.glass = glass;
     root.dataset.liquid = liquidGlass ? "on" : "off";
     root.dataset.liquidDepth = LIQUID_DEPTHS.has(state.settings.liquidDepth)
@@ -723,7 +733,11 @@
       : "soft";
     ["--deep-blue", "--deep-blue-2", "--theme-accent", "--theme-accent-display",
       "--theme-accent-strong", "--theme-accent-soft", "--theme-accent-border", "--theme-accent-contrast",
-      "--theme-sidebar-glow", "--theme-hero-tint"]
+      "--theme-sidebar-glow", "--theme-hero-tint", "--bg", "--bg-grid", "--surface", "--surface-soft",
+      "--surface-raised", "--ink", "--ink-soft", "--muted", "--line", "--line-strong", "--navy", "--navy-2",
+      "--blue", "--blue-soft", "--teal", "--teal-soft", "--workspace-sheen", "--glass-surface",
+      "--glass-surface-strong", "--glass-border", "--glass-shadow", "--cool-border", "--cool-border-strong",
+      "--shadow-sm", "--shadow-md"]
       .forEach((property) => root.style.removeProperty(property));
     if (palette === "custom") {
       const accent = normalizeAccent(state.settings.customAccent);
@@ -745,14 +759,67 @@
       root.style.setProperty("--theme-accent-contrast", accentContrast(accent));
       root.style.setProperty("--theme-sidebar-glow", `rgba(${r}, ${g}, ${b}, 0.2)`);
       root.style.setProperty("--theme-hero-tint", `rgba(${r}, ${g}, ${b}, 0.16)`);
+      if (state.settings.customThemeMode === "full") {
+        const accentRgba = (alpha) => `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        const dark = theme === "dark";
+        const bg = dark
+          ? mixHex(mixHex(sidebar, "#050b10", 0.52), accent, 0.04)
+          : mixHex(accent, "#f3f8fa", 0.92);
+        const surface = dark
+          ? mixHex(mixHex(sidebar, "#0c1922", 0.5), accent, 0.035)
+          : mixHex(accent, "#ffffff", 0.97);
+        const surfaceSoft = dark
+          ? mixHex(surface, accent, 0.07)
+          : mixHex(accent, "#f4f8fa", 0.9);
+        const surfaceRaised = dark
+          ? mixHex(surface, "#ffffff", 0.06)
+          : mixHex(accent, "#ffffff", 0.94);
+        const ink = dark ? mixHex(accent, "#f3f8fa", 0.88) : mixHex(sidebar, "#0b1720", 0.34);
+        const inkSoft = dark ? mixHex(accent, "#c9d9e1", 0.78) : mixHex(sidebar, "#526777", 0.52);
+        const muted = dark ? mixHex(accent, "#829cab", 0.58) : mixHex(sidebar, "#7b8f9b", 0.64);
+        const line = dark ? mixHex(accent, "#24404f", 0.72) : mixHex(accent, "#dbe6ea", 0.82);
+        const lineStrong = dark ? mixHex(accent, "#365869", 0.55) : mixHex(accent, "#bfd2da", 0.65);
+        const blue = accessibleAccent(accent, surface);
+        const blueSoft = mixHex(accent, dark ? "#12252e" : "#ffffff", dark ? 0.78 : 0.88);
+        const teal = accessibleAccent(mixHex(accent, "#1d8b86", 0.52), surface);
+        const tealSoft = mixHex(accent, dark ? "#102d2a" : "#effaf7", dark ? 0.74 : 0.88);
+        root.style.setProperty("--bg", bg);
+        root.style.setProperty("--bg-grid", accentRgba(dark ? 0.08 : 0.06));
+        root.style.setProperty("--surface", surface);
+        root.style.setProperty("--surface-soft", surfaceSoft);
+        root.style.setProperty("--surface-raised", surfaceRaised);
+        root.style.setProperty("--ink", ink);
+        root.style.setProperty("--ink-soft", inkSoft);
+        root.style.setProperty("--muted", muted);
+        root.style.setProperty("--line", line);
+        root.style.setProperty("--line-strong", lineStrong);
+        root.style.setProperty("--navy", sidebar);
+        root.style.setProperty("--navy-2", sidebarEnd);
+        root.style.setProperty("--blue", blue);
+        root.style.setProperty("--blue-soft", blueSoft);
+        root.style.setProperty("--teal", teal);
+        root.style.setProperty("--teal-soft", tealSoft);
+        root.style.setProperty("--cool-border", mixHex(accent, dark ? "#2c4a59" : "#c6dae3", dark ? 0.68 : 0.76));
+        root.style.setProperty("--cool-border-strong", mixHex(accent, dark ? "#426778" : "#aac7d2", dark ? 0.55 : 0.58));
+        root.style.setProperty("--workspace-sheen", dark ? "rgba(220, 244, 252, 0.04)" : "rgba(255, 255, 255, 0.26)");
+        root.style.setProperty("--glass-surface", `linear-gradient(135deg, ${accentRgba(dark ? 0.12 : 0.1)}, ${surface}${dark ? "b8" : "d9"})`);
+        root.style.setProperty("--glass-surface-strong", `linear-gradient(135deg, ${accentRgba(dark ? 0.18 : 0.15)}, ${surface}${dark ? "d9" : "f2"})`);
+        root.style.setProperty("--glass-border", accentRgba(dark ? 0.3 : 0.34));
+        root.style.setProperty("--glass-shadow", dark ? "rgba(0, 0, 0, 0.28)" : "rgba(20, 72, 96, 0.13)");
+        root.style.setProperty("--shadow-sm", dark ? "0 8px 24px rgba(0, 0, 0, 0.2)" : `0 3px 14px ${accentRgba(0.08)}`);
+        root.style.setProperty("--shadow-md", dark ? "0 18px 55px rgba(0, 0, 0, 0.3)" : `0 14px 38px ${accentRgba(0.12)}`);
+      }
     }
     const paletteName = APPEARANCE_PALETTES[palette].name;
+    const customModeName = palette === "custom"
+      ? (state.settings.customThemeMode === "accent" ? "仅强调色" : "全界面联动")
+      : "";
     const themeColor = getComputedStyle(root).getPropertyValue("--deep-blue").trim();
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor || "#0c2437");
     document.getElementById("theme-label").textContent = "外观";
     document.getElementById("appearance-palette-label").textContent = paletteName;
     document.getElementById("appearance-preview-name").textContent =
-      `${paletteName} · ${theme === "dark" ? "深色" : "浅色"}`;
+      `${paletteName}${customModeName ? ` · ${customModeName}` : ""} · ${theme === "dark" ? "深色" : "浅色"}`;
     document.getElementById("appearance-preview-glass").textContent = liquidGlass
       ? `液态玻璃 · ${liquidSummary()}`
       : GLASS_LABELS[glass];
@@ -887,6 +954,11 @@
       customSwatch.style.setProperty("--swatch-a", normalizeAccent(state.settings.customSidebar, "#0c2437"));
       customSwatch.style.setProperty("--swatch-b", normalizeAccent(state.settings.customAccent));
     }
+    document.querySelectorAll("button[data-custom-scope]").forEach((button) => {
+      const active = button.dataset.customScope === state.settings.customThemeMode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
     const supportsGlass = !window.CSS?.supports
       || CSS.supports("backdrop-filter", "blur(1px)")
       || CSS.supports("-webkit-backdrop-filter", "blur(1px)");
@@ -1369,6 +1441,8 @@
       currentId: null,
       manualOverflowIds: [],
       focusActive: false,
+      focusPaused: false,
+      focusResumeState: null,
       focusIds: [],
       focusPhase: "overview",
       focusQuizQueue: [],
@@ -1389,6 +1463,10 @@
     }
     if (!Array.isArray(state.session.manualOverflowIds)) state.session.manualOverflowIds = [];
     if (typeof state.session.focusActive !== "boolean") state.session.focusActive = false;
+    if (typeof state.session.focusPaused !== "boolean") state.session.focusPaused = false;
+    if (!state.session.focusResumeState || typeof state.session.focusResumeState !== "object") {
+      state.session.focusResumeState = null;
+    }
     if (!["overview", "quiz"].includes(state.session.focusPhase)) state.session.focusPhase = "overview";
     if (!state.session.focusStartedAt) state.session.focusStartedAt = null;
 
@@ -1467,6 +1545,58 @@
     return [...new Set((ids || []).map(Number).filter(Number.isFinite))];
   }
 
+  function captureStudyResumeState() {
+    if (!state.session?.focusActive) return null;
+    const livePhase = ["overview", "question", "feedback", "complete"].includes(ui.study.phase);
+    if (!livePhase && state.session.focusResumeState) {
+      return structuredClone(state.session.focusResumeState);
+    }
+    const phase = livePhase
+      ? ui.study.phase
+      : (state.session.focusPhase === "quiz" ? "question" : "overview");
+    return {
+      phase,
+      question: ui.study.question ? structuredClone(ui.study.question) : null,
+      feedback: ui.study.feedback ? structuredClone(ui.study.feedback) : null,
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  function hasResumableFocusSession() {
+    if (!state.session?.focusActive) return false;
+    const ids = uniqueIds(state.session.focusIds || []).filter((id) => termById.has(id));
+    if (!ids.length) return false;
+    const snapshot = state.session.focusResumeState;
+    if (snapshot?.phase === "feedback" && snapshot.question && snapshot.feedback
+      && ids.includes(Number(state.session.currentId))) {
+      return true;
+    }
+    if (state.session.focusPhase === "overview") {
+      return ids.some((id) => !state.session.completedIds.includes(id));
+    }
+    return getFocusQueue().length > 0;
+  }
+
+  function clearFocusSessionState() {
+    state.session.focusActive = false;
+    state.session.focusPaused = false;
+    state.session.focusResumeState = null;
+    state.session.focusIds = [];
+    state.session.focusPhase = "overview";
+    state.session.focusQuizQueue = [];
+    state.session.focusAttempts = {};
+    state.session.focusStartedAt = null;
+    resetStudyHistory();
+  }
+
+  function pauseFocusSessionForNavigation() {
+    if (!hasResumableFocusSession()) return false;
+    state.session.focusPaused = true;
+    state.session.focusResumeState = captureStudyResumeState();
+    saveState();
+    return true;
+  }
+
   function getQueue() {
     const completed = new Set(state.session.completedIds);
     const reviewQueue = (state.session.reviewIds || []).filter((id) => {
@@ -1510,17 +1640,15 @@
   }
 
   function openStudySetup() {
-    if (state.session.focusActive && getFocusQueue().length) {
+    if (hasResumableFocusSession()) {
+      pendingFocusStartOptions = null;
+      studyEntryApproved = false;
       navigate("study");
       return;
     }
-    state.session.focusActive = false;
-    state.session.focusIds = [];
-    state.session.focusPhase = "overview";
-    state.session.focusQuizQueue = [];
-    state.session.focusAttempts = {};
-    resetStudyHistory();
-    state.session.focusStartedAt = null;
+    clearFocusSessionState();
+    studyEntryApproved = false;
+    pendingFocusStartOptions = null;
     ui.study = {
       phase: "setup",
       taughtId: null,
@@ -1532,8 +1660,30 @@
     navigate("study");
   }
 
+  function requestFocusSession(options = {}) {
+    if (hasResumableFocusSession()) {
+      pendingFocusStartOptions = structuredClone(options);
+      studyEntryApproved = false;
+      navigate("study", { scroll: false });
+      return false;
+    }
+    startFocusSession(options);
+    return true;
+  }
+
   function startFocusSession(options = {}) {
     ensureSession();
+    if (options.addAsReview && Number.isFinite(Number(options.focusTermId))) {
+      state.session.extraReviewIds = uniqueIds([
+        ...(state.session.extraReviewIds || []),
+        Number(options.focusTermId),
+      ]);
+    }
+    const resetCompletedIds = uniqueIds(options.resetCompletedIds || []);
+    if (resetCompletedIds.length) {
+      const resetSet = new Set(resetCompletedIds);
+      state.session.completedIds = state.session.completedIds.filter((id) => !resetSet.has(Number(id)));
+    }
     const plan = getSessionPlan();
     let ids = options.ids
       ? uniqueIds(options.ids).filter((id) => termById.has(id) && !state.session.completedIds.includes(id))
@@ -1548,6 +1698,8 @@
       return;
     }
     state.session.focusActive = true;
+    state.session.focusPaused = false;
+    state.session.focusResumeState = null;
     state.session.focusIds = ids;
     state.session.focusPhase = "overview";
     state.session.focusQuizQueue = [];
@@ -1563,9 +1715,104 @@
       question: null,
       selectedIndex: null,
     };
+    studyEntryApproved = true;
+    pendingFocusStartOptions = null;
     saveState();
     navigate("study", { scroll: false });
     resetPageScroll();
+  }
+
+  function resumeFocusSession() {
+    if (!hasResumableFocusSession()) {
+      openStudySetup();
+      return;
+    }
+    const snapshot = state.session.focusResumeState;
+    const ids = uniqueIds(state.session.focusIds || []);
+    if (!ids.includes(Number(state.session.currentId))) {
+      state.session.currentId = state.session.focusQuizQueue?.[0]?.id || ids[0] || null;
+    }
+    state.session.focusActive = true;
+    state.session.focusPaused = false;
+    if (state.session.focusPhase === "overview") {
+      ui.study = {
+        phase: "overview",
+        taughtId: null,
+        feedback: null,
+        question: null,
+        selectedIndex: null,
+      };
+    } else if (snapshot?.phase === "feedback" && snapshot.question && snapshot.feedback) {
+      ui.study = {
+        phase: "feedback",
+        taughtId: null,
+        feedback: structuredClone(snapshot.feedback),
+        question: structuredClone(snapshot.question),
+        selectedIndex: snapshot.feedback.selectedIndex ?? null,
+      };
+    } else {
+      ui.study = {
+        phase: "question",
+        taughtId: null,
+        feedback: null,
+        question: null,
+        selectedIndex: null,
+      };
+    }
+    studyEntryApproved = true;
+    pendingFocusStartOptions = null;
+    lastAutoSpokenTermId = null;
+    saveState();
+    navigate("study", { scroll: false });
+    resetPageScroll();
+  }
+
+  function restartFocusSession() {
+    const pausedIds = uniqueIds(state.session.focusIds || []);
+    const resumable = hasResumableFocusSession();
+    const options = pendingFocusStartOptions
+      || (resumable ? { ids: pausedIds } : {});
+    const resetIds = uniqueIds(options.ids || (options.focusTermId ? [options.focusTermId] : pausedIds));
+    if (resetIds.length) {
+      const resetSet = new Set(resetIds);
+      state.session.completedIds = state.session.completedIds.filter((id) => !resetSet.has(Number(id)));
+    }
+    pendingFocusStartOptions = null;
+    startFocusSession(options);
+  }
+
+  function renderStudyResumePrompt() {
+    const ids = uniqueIds(state.session.focusIds || []).filter((id) => termById.has(id));
+    const completed = state.session.completedIds.filter((id) => ids.includes(id)).length;
+    const current = termById.get(Number(state.session.currentId))
+      || termById.get(state.session.focusQuizQueue?.[0]?.id)
+      || termById.get(ids[0]);
+    const phaseLabel = state.session.focusPhase === "quiz" ? "混合练习" : "基础通览";
+    const remaining = Math.max(0, ids.length - completed);
+    viewRoot.innerHTML = `
+      <div class="focus-setup-page">
+        <div class="focus-setup-head">
+          <button class="focus-exit" type="button" data-route="today">← 返回今日学习</button>
+        </div>
+        <section class="focus-setup-card resume-session-card">
+          <span class="eyebrow">PAUSED SESSION · 继续学习</span>
+          <h2>上次学习还没有完成</h2>
+          <p>你停在「${escapeHtml(current?.en || "当前词")}」。继续会保留已有作答、当前阶段和复习队列；重新开始会清空本轮进度并重新选择。</p>
+          <div class="resume-session-summary">
+            <div><span>当前阶段</span><strong>${phaseLabel}</strong></div>
+            <div><span>本轮词汇</span><strong>${ids.length}</strong></div>
+            <div><span>已完成</span><strong>${completed}</strong></div>
+            <div><span>剩余词</span><strong>${remaining}</strong></div>
+          </div>
+          <div class="resume-session-actions">
+            <button class="button button-primary" type="button" data-action="resume-focus">继续上次学习 →</button>
+            <button class="button" type="button" data-action="restart-focus">放弃并重新开始</button>
+          </div>
+        </section>
+      </div>
+    `;
+    document.getElementById("page-title").textContent = "继续学习";
+    document.getElementById("page-kicker").textContent = `FOCUS SESSION · ${dateKey()}`;
   }
 
   function sessionTotal() {
@@ -2326,6 +2573,10 @@
     stopSpeech();
     if (state.settings.autoCloseWordLookup) closeWordLookupCard(true);
     ensureSession();
+    if (hasResumableFocusSession() && !studyEntryApproved) {
+      renderStudyResumePrompt();
+      return;
+    }
     if (!state.session.focusActive && ui.study.phase !== "complete") {
       renderStudySetup();
       return;
@@ -2498,14 +2749,16 @@
   }
 
   function exitFocusSession() {
-    state.session.focusActive = false;
-    state.session.focusIds = [];
-    state.session.focusPhase = "overview";
-    state.session.focusQuizQueue = [];
-    state.session.focusAttempts = {};
-    resetStudyHistory();
-    state.session.focusStartedAt = null;
-    ui.study.phase = "setup";
+    if (hasResumableFocusSession()) {
+      state.session.focusPaused = true;
+      state.session.focusResumeState = captureStudyResumeState();
+      toast("本轮已暂停，下次进入可以继续");
+    } else {
+      clearFocusSessionState();
+      ui.study.phase = "setup";
+    }
+    studyEntryApproved = false;
+    pendingFocusStartOptions = null;
     saveState();
     navigate("today");
   }
@@ -2727,16 +2980,7 @@
   function startStudyingTerm(termId, addAsReview = false) {
     const id = Number(termId);
     if (!termById.has(id)) return;
-    if (addAsReview && !state.session.extraReviewIds.includes(id)) {
-      state.session.extraReviewIds.push(id);
-    }
-    state.session.completedIds = state.session.completedIds.filter((item) => item !== id);
-    state.session.currentId = id;
-    lastAutoSpokenTermId = null;
-    ui.revealed = false;
-    ui.hideNewAnswer = false;
-    saveState();
-    startFocusSession({ focusTermId: id });
+    requestFocusSession({ focusTermId: id, addAsReview, resetCompletedIds: [id] });
   }
 
   function addTermToToday(termId) {
@@ -2887,17 +3131,16 @@
       toast("今天没有到期的已学词");
       return;
     }
-    state.session.completedIds = state.session.completedIds.filter((id) => !dueIds.includes(id));
-    state.session.currentId = dueIds[0];
-    lastAutoSpokenTermId = null;
-    ui.revealed = false;
-    ui.hideNewAnswer = false;
-    saveState();
     const limitedDueIds = state.settings.sessionLimit > 0
       ? dueIds.slice(0, state.settings.sessionLimit)
       : dueIds;
-    startFocusSession({ ids: limitedDueIds });
-    toast(`已进入到期复习：本轮 ${limitedDueIds.length} 词`);
+    const entered = requestFocusSession({
+      ids: limitedDueIds,
+      resetCompletedIds: limitedDueIds,
+    });
+    toast(entered
+      ? `已进入到期复习：本轮 ${limitedDueIds.length} 词`
+      : "请先选择继续上次学习或重新开始");
   }
 
   function renderFlashcard(term, queue) {
@@ -3528,9 +3771,12 @@
     const paletteName = APPEARANCE_PALETTES[state.settings.palette]?.name || "深海蓝图";
     const appearanceLabel = [
       paletteName,
+      state.settings.palette === "custom"
+        ? (state.settings.customThemeMode === "accent" ? "仅强调色" : "全界面联动")
+        : "",
       state.settings.theme === "dark" ? "深色" : "浅色",
       state.settings.liquidGlass ? "液态玻璃" : (GLASS_LABELS[state.settings.glass] || GLASS_LABELS.off),
-    ].join(" · ");
+    ].filter(Boolean).join(" · ");
     const masteredPercent = stats.touched
       ? Math.min(100, Math.round((stats.mastered / stats.touched) * 100))
       : 0;
@@ -4110,6 +4356,11 @@
 
   function navigate(route, options = {}) {
     if (!pageMeta[route]) route = "today";
+    if (ui.route === "study" && route !== "study") {
+      pauseFocusSessionForNavigation();
+      studyEntryApproved = false;
+      pendingFocusStartOptions = null;
+    }
     stopSpeech();
     closeWordLookupCard(true);
     const previousRoute = ui.route;
@@ -4329,6 +4580,9 @@
         normalizeLiquidSettings(state.settings);
         state.settings.customSidebar = normalizeAccent(state.settings.customSidebar, "#0c2437");
         state.settings.customAccent = normalizeAccent(state.settings.customAccent);
+        state.settings.customThemeMode = ["full", "accent"].includes(state.settings.customThemeMode)
+          ? state.settings.customThemeMode
+          : "full";
         state.settings.wordCardPosition = normalizeWordCardPosition(state.settings.wordCardPosition);
         state.settings.autoCloseWordLookup = state.settings.autoCloseWordLookup !== false;
         state.settings.newLimit = [5, 10, 15, 20].includes(Number(state.settings.newLimit))
@@ -4396,6 +4650,17 @@
         state.settings.palette = palette;
       });
       toast(`配色已切换为${APPEARANCE_PALETTES[palette].name}`, { replace: true });
+      return;
+    }
+
+    const customScopeButton = event.target.closest("button[data-custom-scope]");
+    if (customScopeButton) {
+      const scope = customScopeButton.dataset.customScope === "accent" ? "accent" : "full";
+      runAppearanceChange(() => {
+        state.settings.palette = "custom";
+        state.settings.customThemeMode = scope;
+      });
+      toast(scope === "full" ? "自定义颜色已联动到完整界面" : "已切换为仅修改强调色与侧边栏", { replace: true });
       return;
     }
 
@@ -4616,8 +4881,16 @@
       openStudySetup();
       return;
     }
-    if (action === "begin-focus" || action === "restart-focus") {
+    if (action === "begin-focus") {
       startFocusSession();
+      return;
+    }
+    if (action === "resume-focus") {
+      resumeFocusSession();
+      return;
+    }
+    if (action === "restart-focus") {
+      restartFocusSession();
       return;
     }
     if (action === "open-focus-setup") {
@@ -4905,6 +5178,7 @@
       state.settings.liquidGloss = defaultState.settings.liquidGloss;
       state.settings.customSidebar = defaultState.settings.customSidebar;
       state.settings.customAccent = defaultState.settings.customAccent;
+      state.settings.customThemeMode = defaultState.settings.customThemeMode;
     });
     toast("已恢复默认外观", { replace: true });
   });
@@ -4975,6 +5249,11 @@
     const route = location.hash.replace("#", "");
     if (pageMeta[route] && route !== ui.route) {
       closeWordLookupCard(true);
+      if (ui.route === "study" && route !== "study") {
+        pauseFocusSessionForNavigation();
+        pendingFocusStartOptions = null;
+      }
+      if (route !== "study") studyEntryApproved = false;
       runRouteChange(() => {
         ui.route = route;
         render();

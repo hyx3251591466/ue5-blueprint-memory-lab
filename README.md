@@ -31,6 +31,10 @@
 | --- |
 | ![可拖动查词卡](screenshots/github-word-floating.png) |
 
+| 中途续学 | 自定义主题 |
+| --- | --- |
+| ![中途续学](screenshots/github-resume-session.png) | ![自定义主题](screenshots/github-custom-theme.png) |
+
 ### 手机端
 
 | 今日学习 | 侧边栏导航 | 词典筛选 |
@@ -39,13 +43,13 @@
 
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.2.8-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.8/Blueprint-Memory-Lab-v1.2.8-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.8.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.8/Blueprint-Memory-Lab-Web-v1.2.8.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.8/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.2.9-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.9/Blueprint-Memory-Lab-v1.2.9-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.9.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.9/Blueprint-Memory-Lab-Web-v1.2.9.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.9/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.2.8`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.2.9`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案
@@ -60,6 +64,7 @@ Android 版：
 - 专注卡支持全向跟手拖动与惯性滑出：右滑回看旧卡，左滑进入下一词
 - 右滑回看尚未作答的历史卡时可直接继续答题，不必中断本轮重来
 - 右滑回看旧卡时仍可朗读，切卡或离开页面会停止上一段录音，避免串音
+- 中途退出专注学习会保留当前词、答题队列与反馈状态；再次进入先询问继续上次或重新开始
 - 每日任务先复习后新学，单次背诵总量与每天新词量均可选择
 - 独立的“学习设置”页集中管理学习量、发音、外观、跨设备档案和清理进度
 - 加入今日词单后停留在当前页面；满额时可选择本次超额加入或顶替最后一位
@@ -85,6 +90,8 @@ Android 版：
 - 8 条 Blueprint 场景逻辑链
 - Epic 官方中文文档与学习资源
 - 五套完整主题预设，可分别自定义侧边栏和强调色
+- 自定义主题支持“全界面联动”：页面背景、网格、卡片、文字、描边、按钮和专注背景同步变化
+- 可切换为“仅强调色与侧边栏”，保留原有冷色主体结构
 - 浅色、深色与三档磨砂玻璃
 - 独立液态玻璃：三档折射层次、三档高光流动与两档边缘折射
 

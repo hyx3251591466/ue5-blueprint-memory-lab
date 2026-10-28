@@ -9,7 +9,7 @@
   <title>Blueprint Memory Lab · UE5 蓝图记忆舱</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg">
-  <link rel="stylesheet" href="styles.css?v=1.2.8">
+  <link rel="stylesheet" href="styles.css?v=1.2.9">
 </head>
 <body>
   <div class="app-shell">
@@ -292,22 +292,30 @@
       <section class="appearance-section appearance-custom-section" id="appearance-custom-row" aria-labelledby="appearance-custom-heading">
         <div class="appearance-section-head">
           <div>
-            <h3 id="appearance-custom-heading">自定义强调色</h3>
-            <p>适合想保留整套冷色结构、只换按钮与进度色的人。</p>
+            <h3 id="appearance-custom-heading">自定义主题</h3>
+            <p>“全界面联动”会让页面背景、卡片、文字和描边一起跟随；需要保留原有冷色结构时可切到“仅强调色”。</p>
           </div>
           <span>05</span>
-          <div class="appearance-custom-controls">
-            <label class="appearance-color-control" for="custom-sidebar">
-              <span>侧边栏</span>
-              <input id="custom-sidebar" type="color" value="#0c2437" aria-label="自定义侧边栏底色">
-              <code id="custom-sidebar-value">#0C2437</code>
-            </label>
-            <label class="appearance-color-control" for="custom-accent">
-              <span>强调色</span>
-              <input id="custom-accent" type="color" value="#2d6cdf" aria-label="自定义强调色">
-              <code id="custom-accent-value">#2D6CDF</code>
-            </label>
-          </div>
+        </div>
+        <div class="appearance-segmented appearance-custom-scope" role="group" aria-label="自定义主题作用范围">
+          <button type="button" data-custom-scope="full" aria-pressed="true">全界面联动</button>
+          <button type="button" data-custom-scope="accent" aria-pressed="false">仅强调色与侧边栏</button>
+        </div>
+        <div class="appearance-custom-controls">
+          <label class="appearance-color-control" for="custom-sidebar">
+            <span>侧边栏</span>
+            <input id="custom-sidebar" type="color" value="#0c2437" aria-label="自定义侧边栏底色">
+            <code id="custom-sidebar-value">#0C2437</code>
+          </label>
+          <label class="appearance-color-control" for="custom-accent">
+            <span>主题色</span>
+            <input id="custom-accent" type="color" value="#2d6cdf" aria-label="自定义主题色">
+            <code id="custom-accent-value">#2D6CDF</code>
+          </label>
+        </div>
+        <div class="appearance-custom-note">
+          <span>联动项目</span>
+          <p>侧边栏、顶部栏、页面底色、网格、卡片、文字、描边、按钮、进度与专注背诵背景。</p>
         </div>
       </section>
 
@@ -353,7 +361,7 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="data.js?v=1.2.8"></script>
-  <script src="app.js?v=1.2.8"></script>
+  <script src="data.js?v=1.2.9"></script>
+  <script src="app.js?v=1.2.9"></script>
 </body>
 </html>

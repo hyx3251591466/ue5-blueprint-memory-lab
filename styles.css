@@ -3648,6 +3648,145 @@ button.phrase-part:hover {
   }
 }
 
+/* Full custom themes must repaint the same surfaces as the presets. */
+:root[data-palette="custom"][data-custom-scope="full"] body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .workspace {
+  border-left-color: var(--line);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 76%, var(--bg)),
+      color-mix(in srgb, var(--surface) 36%, var(--bg))
+    );
+  box-shadow:
+    inset 10px 0 30px color-mix(in srgb, var(--theme-accent) 5%, transparent),
+    inset 1px 0 0 color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .topbar {
+  border-bottom-color: var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .mobile-nav {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--theme-accent) 8%, transparent),
+    0 -10px 30px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .dashboard-hero {
+  border-color: var(--cool-border);
+  background:
+    radial-gradient(circle at 90% 7%, color-mix(in srgb, var(--theme-accent) 12%, transparent), transparent 28%),
+    var(--surface);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .metric-strip > :first-child,
+:root[data-palette="custom"][data-custom-scope="full"] .wordlist-summary > :first-child {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--theme-accent-soft) 62%, var(--surface)),
+      transparent
+    );
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .learning-step {
+  border-color: var(--cool-border);
+  background: color-mix(in srgb, var(--surface) 78%, var(--bg));
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .flashcard {
+  border-color: var(--cool-border-strong);
+  background:
+    radial-gradient(circle at 92% 4%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 30%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 99%, var(--bg)),
+      color-mix(in srgb, var(--surface-soft) 96%, var(--bg))
+    );
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .side-card,
+:root[data-palette="custom"][data-custom-scope="full"] .memory-card,
+:root[data-palette="custom"][data-custom-scope="full"] .learned-card,
+:root[data-palette="custom"][data-custom-scope="full"] .tutorial-card,
+:root[data-palette="custom"][data-custom-scope="full"] .scenario-panel,
+:root[data-palette="custom"][data-custom-scope="full"] .term-card,
+:root[data-palette="custom"][data-custom-scope="full"] .focus-card,
+:root[data-palette="custom"][data-custom-scope="full"] .focus-setup-card,
+:root[data-palette="custom"][data-custom-scope="full"] .focus-complete-card {
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .focus-stage {
+  color: var(--ink);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .nav-item small {
+  color: color-mix(in srgb, var(--theme-accent) 28%, #a9bec9);
+}
+
+:root[data-palette="custom"][data-custom-scope="full"] .sidebar-note {
+  border-color: color-mix(in srgb, var(--theme-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--theme-accent) 6%, transparent);
+}
+
+.appearance-custom-scope {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.appearance-custom-controls {
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.appearance-custom-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.appearance-custom-note span {
+  color: var(--theme-accent-strong);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.appearance-custom-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+@media (max-width: 620px) {
+  .appearance-custom-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .appearance-color-control {
+    justify-content: space-between;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -4517,6 +4656,53 @@ button.phrase-part:hover {
   margin: 0;
   color: var(--muted);
   font-size: 11px;
+}
+
+.resume-session-card {
+  max-width: 720px;
+  border-color: color-mix(in srgb, var(--theme-accent-strong) 24%, var(--line));
+}
+
+.resume-session-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.resume-session-summary > div {
+  padding: 13px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-soft);
+}
+
+.resume-session-summary span,
+.resume-session-summary strong {
+  display: block;
+}
+
+.resume-session-summary span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.resume-session-summary strong {
+  margin-top: 4px;
+  color: var(--theme-accent-display, var(--theme-accent-strong));
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.resume-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.resume-session-actions .button-primary {
+  min-width: 180px;
 }
 
 .focus-setup-block {
@@ -10215,5 +10401,21 @@ html {
 
   .settings-summary-item strong {
     font-size: 10px;
+  }
+}
+
+@media (max-width: 620px) {
+  .resume-session-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .resume-session-actions {
+    flex-direction: column;
+  }
+
+  .resume-session-actions .button,
+  .resume-session-actions .button-primary {
+    width: 100%;
+    min-width: 0;
   }
 }

@@ -1125,6 +1125,11 @@ code {
   gap: 6px;
 }
 
+.phrase-fallback {
+  border-style: dashed !important;
+  background: color-mix(in srgb, var(--surface) 78%, var(--theme-accent-soft)) !important;
+}
+
 .phrase-part-group {
   display: inline-flex;
   overflow: hidden;
@@ -4748,6 +4753,37 @@ button.phrase-part:hover {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: 0 24px 70px rgba(20, 61, 83, 0.13);
   backdrop-filter: blur(22px);
+  touch-action: pan-y;
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+.focus-card.is-dragging {
+  cursor: grabbing;
+}
+
+.focus-swipe-hint,
+.focus-history-hint {
+  margin: 12px auto 0;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+.focus-history-header .focus-session-title span {
+  color: var(--amber);
+}
+
+.is-history-view .focus-card {
+  border-style: dashed;
+  box-shadow:
+    0 20px 60px rgba(15, 55, 75, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.is-history-view .focus-card button {
+  cursor: default;
 }
 
 .focus-card-meta {

@@ -9,13 +9,13 @@
 
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.2.1-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.1/Blueprint-Memory-Lab-v1.2.1-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.1.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.1/Blueprint-Memory-Lab-Web-v1.2.1.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.1/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.2.2-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.2/Blueprint-Memory-Lab-v1.2.2-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.2.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.2/Blueprint-Memory-Lab-Web-v1.2.2.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.2/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.2.1`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.2.2`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案
@@ -27,10 +27,12 @@ Android 版：
 - 独立专注背诵页：先完成全部词条基础通览，再集中进入混合选择题
 - 可组合英译中、使用场景与拆词组义题；完整题目选项只使用本轮词条
 - 会话内间隔强化：每个词至少重现两次，答错会更快再次出现，最终结果只写入一次跨天复习计划
+- 专注卡支持跟手左右拖动与惯性滑出：右滑回看旧卡，左滑返回当前卡
 - 每日任务先复习后新学，单次背诵总量与每天新词量均可选择
 - 加入今日词单后停留在当前页面；满额时可选择本次超额加入或顶替最后一位
 - 今日词单、已学词库与艾宾浩斯到期复习
 - 拆词查义以侧卡展开：词条详情旁并排显示，或从专注页旋转斜向滑出
+- 词库未收录的拆词子项先显示本地基础翻译，再提供可选的有道跳转
 - 分层的词条详情导航，关闭子词义后恢复原词条、滚动位置与展开状态
 - 首次使用五步教程、手机端引导和全局主题色彩过渡
 - 学习进度 JSON 导入导出，可跨设备恢复阶段、到期时间、联想笔记和外观设置

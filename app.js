@@ -37,8 +37,257 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.1";
+  const APP_VERSION = "1.2.2";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+  const WORD_FALLBACK_GLOSSARY = Object.freeze({
+    library: "库",
+    macro: "宏",
+    base: "基础 / 基类",
+    user: "用户",
+    editor: "编辑器",
+    graph: "图表",
+    construction: "构造",
+    script: "脚本",
+    root: "根",
+    scene: "场景",
+    variable: "变量",
+    editable: "可编辑",
+    expose: "公开 / 暴露",
+    on: "在上 / 启用",
+    defaults: "默认值",
+    settings: "设置",
+    implemented: "已实现",
+    interfaces: "接口",
+    dispatcher: "派发器",
+    bind: "绑定",
+    override: "重载 / 覆盖",
+    pure: "纯",
+    node: "节点",
+    impure: "非纯",
+    execution: "执行",
+    pin: "引脚",
+    cast: "类型转换",
+    compile: "编译",
+    errors: "错误",
+    search: "搜索",
+    my: "我的",
+    details: "细节",
+    panel: "面板",
+    soft: "软",
+    "[variable]": "变量（占位符）",
+    literal: "字面值",
+    members: "成员",
+    valid: "有效",
+    action: "动作",
+    roll: "侧翻",
+    control: "控制",
+    ui: "界面",
+    cursor: "光标",
+    enable: "启用",
+    was: "曾经 / 是否",
+    just: "刚刚",
+    pressed: "按下",
+    down: "向下 / 按下",
+    project: "投影",
+    screen: "屏幕",
+    deproject: "反投影",
+    pawn: "可控制实体",
+    character: "角色",
+    locally: "本地",
+    controlled: "受控",
+    flow: "流程",
+    flip: "翻转",
+    flop: "切换",
+    two: "两",
+    way: "方向",
+    "for each": "对每个元素",
+    retriggerable: "可重复触发",
+    int: "整数",
+    n: "数量",
+    inverse: "逆",
+    lerp: "插值",
+    clamped: "限制范围",
+    unclamped: "不限制范围",
+    bool: "布尔",
+    weight: "权重",
+    unit: "单位",
+    square: "平方",
+    dot: "点积",
+    product: "乘积",
+    cross: "叉积",
+    xy: "XY 平面",
+    nearly: "近似",
+    equal: "相等",
+    zero: "零",
+    degrees: "度",
+    radians: "弧度",
+    "3d": "三维",
+    relative: "相对",
+    rotate: "旋转",
+    unrotate: "反向旋转",
+    "look at": "注视",
+    vinterp: "向量插值",
+    rinterp: "旋转插值",
+    tinterp: "变换插值",
+    finterp: "浮点插值",
+    detach: "分离",
+    delta: "增量",
+    mass: "质量",
+    center: "中心",
+    of: "的 / 属于",
+    angular: "角",
+    torque: "扭矩",
+    wake: "唤醒",
+    rigid: "刚体",
+    bodies: "物体",
+    put: "放置",
+    sleep: "休眠",
+    presets: "预设",
+    query: "查询",
+    no: "不 / 无",
+    by: "按",
+    multi: "多",
+    sweep: "扫描",
+    single: "单个",
+    impact: "冲击点",
+    point: "点",
+    start: "开始",
+    ignore: "忽略",
+    when: "当",
+    moving: "移动",
+    response: "响应",
+    channels: "通道",
+    deferred: "延迟",
+    spawning: "生成",
+    display: "显示",
+    child: "子级",
+    actors: "场景对象",
+    tag: "标签",
+    owner: "拥有者",
+    owning: "所属",
+    parent: "父级",
+    life: "生命周期",
+    span: "跨度",
+    hidden: "隐藏",
+    interval: "间隔",
+    label: "标签",
+    seconds: "秒",
+    time: "时间",
+    copy: "副本",
+    elem: "元素",
+    append: "追加",
+    static: "静态",
+    skeletal: "骨骼",
+    target: "目标",
+    blend: "混合",
+    test: "测试",
+    invisible: "不可见",
+    self: "自身",
+    parameter: "参数",
+    texture: "纹理",
+    render: "渲染",
+    depth: "深度",
+    stencil: "模板",
+    tags: "标签",
+    auto: "自动",
+    activate: "激活",
+    tree: "树",
+    "(text)": "文本类型",
+    "(string)": "字符串类型",
+    percent: "百分比",
+    opacity: "不透明度",
+    changed: "已变化",
+    committed: "已提交",
+    vertical: "垂直",
+    canvas: "画布",
+    grid: "网格",
+    uniform: "统一",
+    size: "尺寸",
+    scroll: "滚动",
+    block: "块",
+    "2d": "二维",
+    attached: "已附加",
+    audio: "音频",
+    fade: "淡入 / 淡出",
+    in: "进入 / 输入",
+    volume: "音量",
+    multiplier: "倍率",
+    playing: "正在播放",
+    attenuation: "衰减",
+    cue: "音频提示",
+    mix: "混合",
+    stop: "停止",
+    sequence: "序列",
+    update: "更新",
+    machine: "状态机",
+    transition: "过渡 / 转换",
+    rule: "规则",
+    space: "空间",
+    aim: "瞄准",
+    notify: "通知",
+    motion: "运动",
+    morph: "变形",
+    ai: "人工智能",
+    simple: "简单",
+    reachable: "可到达",
+    radius: "半径",
+    navigable: "可导航",
+    navigation: "导航",
+    behavior: "行为",
+    sensing: "感知",
+    focus: "焦点",
+    load: "加载",
+    does: "是否",
+    exist: "存在",
+    delete: "删除",
+    manager: "管理器",
+    current: "当前",
+    restart: "重新开始",
+    default: "默认",
+    quit: "退出",
+    execute: "执行",
+    console: "控制台",
+    command: "命令",
+    seed: "种子",
+    stream: "流 / 关卡流送",
+    hud: "抬头显示",
+    travel: "关卡切换",
+    seamless: "无缝",
+    replicated: "已复制",
+    rep: "复制",
+    authority: "权威",
+    server: "服务器",
+    client: "客户端",
+    net: "网络",
+    multicast: "多播",
+    replicating: "正在复制",
+    frequency: "频率",
+    priority: "优先级",
+    relevant: "相关",
+    standalone: "单机",
+    replicate: "复制",
+    row: "行",
+    import: "导入",
+    csv: "CSV 表格",
+    primary: "主要",
+    async: "异步",
+    print: "打印",
+    watch: "监视",
+    debugger: "调试器",
+    debug: "调试",
+    draw: "绘制",
+    stat: "统计",
+    fps: "帧率",
+    live: "实时",
+    coding: "代码编译",
+    recompile: "重新编译",
+    refresh: "刷新",
+    nodes: "节点",
+    replace: "替换",
+    references: "引用",
+    blueprints: "蓝图",
+    viewer: "查看器",
+  });
   const terms = DATA.terms;
   const termById = new Map(terms.map((term) => [term.id, term]));
   const categoryByName = new Map(DATA.categories.map((category) => [category.name, category]));
@@ -228,6 +477,9 @@
   let modalScrollY = 0;
   let wordLookupCloseTimer = 0;
   let pendingTodayAdd = null;
+  const studyHistory = [];
+  let studyHistoryIndex = null;
+  let studyDrag = null;
 
   let state = loadState();
   applyTheme();
@@ -647,6 +899,12 @@
     }
   }
 
+  function resetStudyHistory() {
+    studyHistory.length = 0;
+    studyHistoryIndex = null;
+    studyDrag = null;
+  }
+
   function syncModalScrollLock() {
     const hasOpenDialog = [appearanceDialog, guideDialog, limitAddDialog, termDialog]
       .some((dialog) => dialog?.open);
@@ -749,8 +1007,16 @@
     return `https://dict.youdao.com/result?word=${encodeURIComponent(String(word).toLowerCase())}&lang=en`;
   }
 
+  function normalizeSpeechText(text) {
+    return String(text || "")
+      .replace(/[()（）[\]{}]/g, " ")
+      .replace(/[^A-Za-z0-9' -]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function youdaoAudioUrl(text) {
-    return `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=1`;
+    return `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(normalizeSpeechText(text))}&type=1`;
   }
 
   function clearSpeakingButtons() {
@@ -762,7 +1028,7 @@
 
   function speakSystem(text, trigger = null) {
     if (window.AndroidBridge?.speakEnglish) {
-      const clean = String(text || "").replace(/[()]/g, " ").replace(/\s+/g, " ").trim();
+      const clean = normalizeSpeechText(text);
       if (!clean) return;
       clearSpeakingButtons();
       trigger?.classList.add("is-speaking");
@@ -775,7 +1041,7 @@
       toast("当前浏览器不支持语音朗读，请使用最新版 Edge 或 Chrome。");
       return;
     }
-    const clean = String(text || "").replace(/[()]/g, " ").replace(/\s+/g, " ").trim();
+    const clean = normalizeSpeechText(text);
     if (!clean) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
@@ -805,7 +1071,7 @@
       const timeout = window.setTimeout(() => {
         audio.pause?.();
         reject(new Error("有道发音请求超时"));
-      }, 5000);
+      }, 3000);
       const finish = (callback, value) => {
         window.clearTimeout(timeout);
         callback(value);
@@ -817,7 +1083,7 @@
   }
 
   async function speakYoudao(text, trigger = null) {
-    const clean = String(text || "").replace(/[()]/g, " ").replace(/\s+/g, " ").trim();
+    const clean = normalizeSpeechText(text);
     if (!clean) return;
     const token = ++youdaoPlaybackToken;
     youdaoAudio?.pause?.();
@@ -905,14 +1171,17 @@
       <div class="phrase-memory ${compact ? "is-compact" : ""}">
         <div class="phrase-label"><span>拆开记</span><small>${compact ? "词组组合" : "先记单词，再合起来理解节点"}</small></div>
         <div class="phrase-parts">
-          ${term.phrase.parts.map((part) => `
-            <span class="phrase-part-group">
-              ${wordByEn.has(part.en)
-                ? `<button class="phrase-part" type="button" data-word="${escapeHtml(part.en)}" aria-label="查询 ${escapeHtml(part.en)}：${escapeHtml(part.zh)}"><b>${escapeHtml(part.en)}</b><i>${escapeHtml(part.zh)}</i></button>`
-                : `<a class="phrase-part phrase-external" href="${escapeHtml(youdaoWordUrl(part.en))}" target="_blank" rel="noopener noreferrer" aria-label="词库暂无 ${escapeHtml(part.en)}，跳转到有道词典查询"><b>${escapeHtml(part.en)}</b><i>有道查词 ↗</i></a>`}
-              ${speakButtonMarkup(part.en, true)}
-            </span>
-          `).join('<span class="phrase-plus" aria-hidden="true">+</span>')}
+          ${term.phrase.parts.map((part) => {
+            const partZh = part.zh || WORD_FALLBACK_GLOSSARY[String(part.en).toLowerCase()] || "基础释义";
+            return `
+              <span class="phrase-part-group">
+                ${wordByEn.has(part.en)
+                  ? `<button class="phrase-part" type="button" data-word="${escapeHtml(part.en)}" aria-label="查询 ${escapeHtml(part.en)}：${escapeHtml(partZh)}"><b>${escapeHtml(part.en)}</b><i>${escapeHtml(partZh)}</i></button>`
+                  : `<button class="phrase-part phrase-fallback" type="button" data-word-fallback="${escapeHtml(part.en)}" data-word-zh="${escapeHtml(partZh)}" aria-label="查看 ${escapeHtml(part.en)} 的基础翻译：${escapeHtml(partZh)}"><b>${escapeHtml(part.en)}</b><i>${escapeHtml(partZh)}</i></button>`}
+                ${speakButtonMarkup(part.en, true)}
+              </span>
+            `;
+          }).join('<span class="phrase-plus" aria-hidden="true">+</span>')}
         </div>
         ${compact ? "" : `<p class="phrase-combined"><span>组合含义</span>${escapeHtml(term.phrase.memory)}</p>`}
       </div>
@@ -1115,6 +1384,7 @@
     state.session.focusPhase = "overview";
     state.session.focusQuizQueue = [];
     state.session.focusAttempts = {};
+    resetStudyHistory();
     state.session.focusStartedAt = null;
     ui.study = {
       phase: "setup",
@@ -1147,6 +1417,7 @@
     state.session.focusPhase = "overview";
     state.session.focusQuizQueue = [];
     state.session.focusAttempts = {};
+    resetStudyHistory();
     state.session.focusStartedAt = new Date().toISOString();
     state.session.currentId = ids[0];
     lastAutoSpokenTermId = null;
@@ -1569,6 +1840,88 @@
     `;
   }
 
+  function captureStudyCard() {
+    const term = termById.get(Number(state.session.currentId));
+    if (!term) return null;
+    if (state.session.focusPhase === "overview" || ui.study.phase === "overview") {
+      return { type: "overview", termId: term.id, attempt: 0 };
+    }
+    if ((ui.study.phase === "feedback" || ui.study.phase === "question")
+      && ui.study.question) {
+      return {
+        type: "quiz",
+        termId: term.id,
+        attempt: ui.study.question.attempt || 1,
+        question: structuredClone(ui.study.question),
+        feedback: ui.study.feedback ? structuredClone(ui.study.feedback) : null,
+      };
+    }
+    return null;
+  }
+
+  function pushStudyHistory() {
+    const snapshot = captureStudyCard();
+    if (!snapshot) return;
+    studyHistory.push(snapshot);
+    if (studyHistory.length > 40) studyHistory.shift();
+    studyHistoryIndex = null;
+  }
+
+  function renderStudyHistoryCard() {
+    if (studyHistoryIndex == null || !studyHistory[studyHistoryIndex]) {
+      studyHistoryIndex = null;
+      renderStudy();
+      return;
+    }
+    const snapshot = studyHistory[studyHistoryIndex];
+    const term = termById.get(Number(snapshot.termId));
+    if (!term) {
+      showStudyHistory("forward");
+      return;
+    }
+    const card = snapshot.type === "overview"
+      ? renderStudyLearn(term)
+      : (snapshot.feedback
+        ? renderStudyFeedback(term, snapshot.question, snapshot.feedback)
+        : renderStudyQuestion(term, snapshot.question));
+    viewRoot.innerHTML = `
+      <div class="focus-page view-enter is-history-view">
+        <header class="focus-header focus-history-header">
+          <button class="focus-exit" type="button" data-action="return-live-study">回到当前卡</button>
+          <div class="focus-session-title">
+            <span>REVIEW · 回看</span>
+            <strong>${escapeHtml(term.en)}</strong>
+          </div>
+          <div class="focus-counter"><strong>${studyHistoryIndex + 1}</strong><span>/ ${studyHistory.length}</span></div>
+          <div class="focus-progress"><span style="width:${studyHistory.length ? ((studyHistoryIndex + 1) / studyHistory.length) * 100 : 0}%"></span></div>
+        </header>
+        <main class="focus-stage">${card}</main>
+        <p class="focus-history-hint">右滑查看更多旧卡 · 左滑回到当前卡</p>
+      </div>
+    `;
+    viewRoot.querySelectorAll(".focus-card button, .focus-card input, .focus-card select").forEach((element) => {
+      element.disabled = true;
+    });
+  }
+
+  function showStudyHistory(direction) {
+    if (!studyHistory.length) return false;
+    if (studyHistoryIndex == null) {
+      if (direction !== "back") return false;
+      studyHistoryIndex = studyHistory.length - 1;
+    } else {
+      studyHistoryIndex += direction === "back" ? -1 : 1;
+    }
+    if (studyHistoryIndex >= studyHistory.length) {
+      studyHistoryIndex = null;
+      renderStudy();
+      return true;
+    }
+    studyHistoryIndex = Math.max(0, studyHistoryIndex);
+    renderStudyHistoryCard();
+    return true;
+  }
+
   function renderStudySetup() {
     const plan = getSessionPlan();
     const limits = [10, 20, 30, 50, 0];
@@ -1770,6 +2123,7 @@
         <div class="focus-page view-enter">
           ${renderFocusHeader(overviewTerm, ids)}
           <section class="focus-stage" aria-label="基础通览卡片">${renderStudyLearn(overviewTerm)}</section>
+          <p class="focus-swipe-hint">${studyHistory.length ? "右滑回看上一张 · 左滑返回当前卡" : "卡片会持续强化记忆"}</p>
         </div>
       `;
       document.getElementById("page-title").textContent = "专注背诵";
@@ -1806,6 +2160,7 @@
       <div class="focus-page view-enter">
           ${renderFocusHeader(term, quizQueue)}
         <section class="focus-stage" aria-label="当前背诵卡片">${card}</section>
+        <p class="focus-swipe-hint">${studyHistory.length ? "右滑回看上一张 · 左滑返回当前卡" : "完成几张后，可拖动卡片回看"}</p>
       </div>
     `;
     document.getElementById("page-title").textContent = "专注背诵";
@@ -1871,6 +2226,7 @@
   }
 
   function advanceStudyOverview() {
+    pushStudyHistory();
     const ids = uniqueIds(state.session.focusIds || []);
     const currentIndex = ids.indexOf(Number(state.session.currentId));
     const nextId = ids[currentIndex + 1];
@@ -1905,6 +2261,7 @@
   }
 
   function advanceStudyQueue() {
+    pushStudyHistory();
     const queue = state.session.focusQuizQueue || [];
     const next = queue[0] || null;
     ui.study = {
@@ -1926,6 +2283,7 @@
     state.session.focusPhase = "overview";
     state.session.focusQuizQueue = [];
     state.session.focusAttempts = {};
+    resetStudyHistory();
     state.session.focusStartedAt = null;
     ui.study.phase = "setup";
     saveState();
@@ -3010,9 +3368,10 @@
     refreshSpeechVoices();
   }
 
-  function wordLookupMarkup(wordEn) {
+  function wordLookupMarkup(wordEn, basicZh = "") {
     const info = wordByEn.get(wordEn);
-    if (!info) return "";
+    const translation = info?.zh || basicZh;
+    if (!translation) return "";
     const examples = terms
       .filter((term) => {
         const words = term.en.replace(/[()]/g, " ").split(/\s+/);
@@ -3021,19 +3380,19 @@
       .slice(0, 8);
     return `
       <header class="word-lookup-card-head">
-        <span class="eyebrow">QUICK WORD · 网页内查词</span>
+        <span class="eyebrow">${info ? "QUICK WORD · 网页内查词" : "BASIC TRANSLATION · 基础翻译"}</span>
         <button class="word-lookup-card-close" type="button" data-action="close-word-card" aria-label="收起查词卡片">×</button>
       </header>
       <div class="word-lookup-title">
         <div>
-          <h2>${escapeHtml(info.en)}</h2>
-          <p>${escapeHtml(info.zh)}</p>
+          <h2>${escapeHtml(wordEn)}</h2>
+          <p>${escapeHtml(translation)}</p>
         </div>
-        ${speakButtonMarkup(info.en, true)}
+        ${speakButtonMarkup(wordEn, true)}
       </div>
       <div class="word-lookup-note">
-        <span>怎么理解</span>
-        <p>${escapeHtml(info.note)}</p>
+        <span>${info ? "怎么理解" : "基础释义"}</span>
+        <p>${escapeHtml(info?.note || `本地词库暂无“${wordEn}”的完整讲解；这里先显示它在当前蓝图词组中的翻译，不需要离开背诵页面。`)}</p>
       </div>
       <section class="word-lookup-examples">
         <h3>出现在这些节点里</h3>
@@ -3043,20 +3402,20 @@
       </section>
       <footer class="word-lookup-card-actions">
         <button class="button button-ghost" type="button" data-action="close-word-card">收起卡片</button>
-        <button class="button" type="button" data-word-search="${escapeHtml(info.en)}">在词典中搜索</button>
-        <a class="button" href="${escapeHtml(youdaoWordUrl(info.en))}" target="_blank" rel="noopener noreferrer">有道词典 ↗</a>
+        ${info ? `<button class="button" type="button" data-word-search="${escapeHtml(wordEn)}">在词典中搜索</button>` : ""}
+        <a class="button" href="${escapeHtml(youdaoWordUrl(wordEn))}" target="_blank" rel="noopener noreferrer">有道词典 ↗</a>
       </footer>
     `;
   }
 
-  function showWordLookupCard(wordEn) {
-    if (!wordByEn.has(wordEn)) return false;
+  function showWordLookupCard(wordEn, basicZh = "") {
+    if (!wordByEn.has(wordEn) && !basicZh) return false;
     const card = termDialog.open ? inlineWordLookupCard : floatingWordLookupCard;
     if (!card) return false;
     window.clearTimeout(wordLookupCloseTimer);
     inlineWordLookupCard.hidden = termDialog.open ? false : true;
     floatingWordLookupCard.hidden = termDialog.open ? true : false;
-    card.innerHTML = wordLookupMarkup(wordEn);
+    card.innerHTML = wordLookupMarkup(wordEn, basicZh);
     card.classList.remove("is-closing", "is-open");
     card.hidden = false;
     if (card === inlineWordLookupCard) termDialog.classList.add("has-word-card");
@@ -3133,8 +3492,8 @@
     return term?.en || "上一页";
   }
 
-  function openWord(wordEn) {
-    showWordLookupCard(wordEn);
+  function openWord(wordEn, basicZh = "") {
+    showWordLookupCard(wordEn, basicZh);
   }
 
   function renderWordDetail(wordEn) {
@@ -3312,6 +3671,109 @@
     };
     if (route !== previousRoute && options.animate !== false) runRouteChange(commit);
     else commit();
+  }
+
+  function resetDraggedStudyCard() {
+    if (!studyDrag?.card) return;
+    const card = studyDrag.card;
+    card.classList.remove("is-dragging", "is-flying-left", "is-flying-right");
+    card.style.removeProperty("transform");
+    card.style.removeProperty("opacity");
+    card.style.removeProperty("transition");
+    studyDrag = null;
+  }
+
+  function beginStudyDrag(event) {
+    if (ui.route !== "study" || !event.isPrimary) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const card = event.target.closest(".focus-card");
+    if (!card || event.target.closest("button, a, input, select, textarea, summary")) return;
+    studyDrag = {
+      pointerId: event.pointerId,
+      card,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      lastTime: performance.now(),
+      dx: 0,
+      dy: 0,
+      velocity: 0,
+      horizontal: false,
+    };
+  }
+
+  function moveStudyDrag(event) {
+    if (!studyDrag || event.pointerId !== studyDrag.pointerId) return;
+    const dx = event.clientX - studyDrag.startX;
+    const dy = event.clientY - studyDrag.startY;
+    studyDrag.dx = dx;
+    studyDrag.dy = dy;
+    if (!studyDrag.horizontal) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+        studyDrag = null;
+        return;
+      }
+      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy) * 1.1) return;
+      studyDrag.horizontal = true;
+      studyDrag.card.classList.add("is-dragging");
+      studyDrag.card.setPointerCapture?.(event.pointerId);
+    }
+    const now = performance.now();
+    const elapsed = Math.max(1, now - studyDrag.lastTime);
+    studyDrag.velocity = (event.clientX - studyDrag.lastX) / elapsed;
+    studyDrag.lastX = event.clientX;
+    studyDrag.lastTime = now;
+    const rotate = Math.max(-8, Math.min(8, dx * 0.025));
+    const lift = Math.min(0.025, Math.abs(dx) / 2600);
+    studyDrag.card.style.transition = "none";
+    studyDrag.card.style.transform = `translate3d(${dx}px, ${Math.abs(dx) * 0.045}px, 0) rotate(${rotate}deg) scale(${1 - lift})`;
+    studyDrag.card.style.opacity = String(Math.max(0.72, 1 - Math.abs(dx) / 720));
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function finishStudyDrag(event) {
+    if (!studyDrag || event.pointerId !== studyDrag.pointerId) return;
+    const drag = studyDrag;
+    if (!drag.horizontal) {
+      studyDrag = null;
+      return;
+    }
+    const direction = drag.dx > 0 ? "back" : "forward";
+    const canNavigate = direction === "back"
+      ? studyHistory.length > 0
+      : studyHistoryIndex != null;
+    const shouldFly = canNavigate && (Math.abs(drag.dx) > 64 || Math.abs(drag.velocity) > 0.42);
+    if (!shouldFly) {
+      const card = drag.card;
+      card.style.transition = "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease";
+      card.style.transform = "translate3d(0, 0, 0) rotate(0) scale(1)";
+      card.style.opacity = "1";
+      window.setTimeout(() => {
+        card.classList.remove("is-dragging");
+        card.style.removeProperty("transform");
+        card.style.removeProperty("opacity");
+        card.style.removeProperty("transition");
+      }, 250);
+      studyDrag = null;
+      return;
+    }
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      studyDrag = null;
+      showStudyHistory(direction);
+      return;
+    }
+    const card = drag.card;
+    const width = card.getBoundingClientRect().width;
+    const exitX = (direction === "back" ? 1 : -1) * (width + 110);
+    const duration = Math.round(Math.max(150, Math.min(250, 250 - Math.abs(drag.velocity) * 150)));
+    const exitClass = direction === "back" ? "is-flying-right" : "is-flying-left";
+    card.classList.add(exitClass);
+    card.style.transition = `transform ${duration}ms cubic-bezier(0.2, 0.72, 0.24, 1), opacity ${duration - 20}ms ease`;
+    card.style.transform = `translate3d(${exitX}px, ${drag.dy * 0.35}px, 0) rotate(${direction === "back" ? 9 : -9}deg) scale(0.95)`;
+    card.style.opacity = "0.12";
+    studyDrag = null;
+    window.setTimeout(() => showStudyHistory(direction), duration + 16);
   }
 
   function toast(message, options = {}) {
@@ -3551,6 +4013,13 @@
       return;
     }
 
+    const fallbackWordButton = event.target.closest("[data-word-fallback]");
+    if (fallbackWordButton) {
+      event.preventDefault();
+      openWord(fallbackWordButton.dataset.wordFallback, fallbackWordButton.dataset.wordZh);
+      return;
+    }
+
     const wordButton = event.target.closest("[data-word]");
     if (wordButton) {
       event.preventDefault();
@@ -3706,6 +4175,11 @@
     }
     if (action === "study-overview-next") {
       advanceStudyOverview();
+      return;
+    }
+    if (action === "return-live-study") {
+      studyHistoryIndex = null;
+      renderStudy();
       return;
     }
     if (action === "open-guide") {
@@ -3914,6 +4388,10 @@
       rateCurrent(ratingButton.dataset.rating);
     }
   });
+  viewRoot.addEventListener("pointerdown", beginStudyDrag);
+  window.addEventListener("pointermove", moveStudyDrag, { passive: false });
+  window.addEventListener("pointerup", finishStudyDrag);
+  window.addEventListener("pointercancel", resetDraggedStudyCard);
 
   document.addEventListener("input", handleInput);
   document.addEventListener("change", handleChange);

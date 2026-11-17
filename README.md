@@ -39,6 +39,18 @@
 | --- |
 | ![Event Landed 事件词条](screenshots/github-event-vocabulary.png) |
 
+### UE5 参考词典
+
+| 桌面词典 | 手机词典 |
+| --- | --- |
+| ![UE5 全域参考词典](screenshots/github-ue5-dictionary.png) | ![手机参考词典](screenshots/github-ue5-dictionary-mobile.png) |
+
+词典共 **2,567 条**：原有 623 条背诵词库，加上 **1,944 条只供查询的参考词条**。新增内容按 34 个分类覆盖编辑器、蓝图、数据类型、数学、组件、物理、UMG、动画、Control Rig、材质、纹理、Lumen/Nanite、Niagara、AI、GAS、联网、PCG、开放世界、影视、音频、打包、XR 等主要系统。
+
+新增参考词不会自动加入每日词单或考试，只有手动点击“加入今日词单”才参与学习。既有词条 ID 与学习进度保留；中文、英文、缩写、无空格节点名均可检索。
+
+UE5 词汇随引擎版本及插件变化，本地词典不是所有插件和版本的穷尽清单。参考词可能是概念、属性、资源、工具或节点，中文为本站学习释义；每类提供官方系统资料，并提供按当前输入跳转 Epic 官方文档搜索。系统资料不代表其中每个词都是可直接搜索的节点。
+
 ### 手机端
 
 | 今日学习 | 侧边栏导航 | 词典筛选 |
@@ -47,13 +59,13 @@
 
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.2.10-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.10/Blueprint-Memory-Lab-v1.2.10-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.10.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.10/Blueprint-Memory-Lab-Web-v1.2.10.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.10/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.2.11-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.11/Blueprint-Memory-Lab-v1.2.11-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.11.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.11/Blueprint-Memory-Lab-Web-v1.2.11.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.11/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.2.10`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.2.11`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案
@@ -61,7 +73,7 @@ Android 版：
 
 ## 功能
 
-- 623 个 UE5 Blueprint 常用词条，支持中英文和节点别名搜索
+- 2,567 条 UE5 词典：623 条背诵词库 + 1,944 条独立参考词条，支持中英文、缩写和节点别名搜索
 - 新增 Event Landed、Falling、Movement Mode Changed、Actor Hit、Any Damage、Construct、Focus、动画初始化等 50 个高频事件入口
 - 独立专注背诵页：先完成全部词条基础通览，再集中进入混合选择题
 - 可组合英译中、使用场景与拆词组义题；完整题目选项只使用本轮词条
@@ -90,7 +102,7 @@ Android 版：
 - 智能整句朗读：有道优先，百度整句自动兜底，系统语音最终回退
 - 在线版通过 Service Worker 同源代理请求整句音频，避免第三方音频接口因网页 Referer 返回空页面
 - 全部 623 个词条完成在线整句音频覆盖检查，长词组不再逐词拼接
-- 每个词条的联想画面、记忆方法和自测问题
+- 背诵词库提供联想画面、记忆方法和自测问题；参考词典侧重含义、所属系统和文档查询
 - 可编辑并本地保存的个人联想笔记
 - 8 条 Blueprint 场景逻辑链
 - Epic 官方中文文档与学习资源

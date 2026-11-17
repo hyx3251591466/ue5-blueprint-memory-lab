@@ -1,3 +1,57 @@
+/* Reference dictionary uses the same theme tokens as the learning views. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.dictionary-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 10px;
+}
+.dictionary-scope {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink-soft);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.dictionary-scope span { color: var(--muted); font: 11px var(--font-mono); }
+.dictionary-scope.is-active { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
+.dictionary-scope.is-active span { color: inherit; }
+.dictionary-scope:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.dictionary-coverage { margin: 0 0 18px; color: var(--muted); font-size: 11px; line-height: 1.8; }
+.dictionary-official {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+.dictionary-official div { min-width: 0; }
+.dictionary-official strong { display: block; color: var(--ink); font-size: 12px; }
+.dictionary-official span { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.dictionary-official .button { flex-shrink: 0; }
+.tag.reference { color: var(--blue); background: var(--blue-soft); }
+.dictionary-source p { color: var(--ink-soft); line-height: 1.8; }
+@media (max-width: 600px) {
+  .dictionary-scopes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .dictionary-scope { flex-direction: column; gap: 5px; padding: 10px 5px; font-size: 11px; }
+  .dictionary-official { align-items: stretch; flex-direction: column; padding: 14px; gap: 12px; }
+  .dictionary-official .button { align-self: flex-start; min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .dictionary-scope { transition: none; } }
+
 :root {
   color-scheme: light;
   --font-sans: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;

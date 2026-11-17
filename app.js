@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.10";
+  const APP_VERSION = "1.2.11";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -288,9 +288,11 @@
     blueprints: "蓝图",
     viewer: "查看器",
   });
-  const terms = DATA.terms;
+  const studyTerms = DATA.terms;
+  const terms = [...studyTerms, ...(DATA.dictionaryTerms || [])];
+  const dictionaryCategories = [...DATA.categories, ...(DATA.referenceCategories || [])];
   const termById = new Map(terms.map((term) => [term.id, term]));
-  const categoryByName = new Map(DATA.categories.map((category) => [category.name, category]));
+  const categoryByName = new Map(dictionaryCategories.map((category) => [category.name, category]));
   const scenarioById = new Map(DATA.scenarios.map((scenario) => [scenario.id, scenario]));
   const tutorials = DATA.tutorials || [];
   const groupById = new Map(DATA.conceptGroups.map((group) => [group.id, group]));
@@ -446,6 +448,7 @@
     },
     library: {
       query: "",
+      scope: "all",
       category: "all",
       status: "all",
       limit: 24,
@@ -1349,6 +1352,9 @@
 
   function termStatus(term) {
     const progress = currentTermState(term.id);
+    if (!progress && term.dictionaryOnly && !state.session?.newIds?.includes(term.id)) {
+      return { key: "reference", label: "参考词条" };
+    }
     if (!progress) return { key: "new", label: "未学习" };
     if ((progress.step ?? -1) >= 4) return { key: "mastered", label: "长期记忆" };
     return { key: "learning", label: "学习中" };
@@ -1519,7 +1525,7 @@
       .map((item) => Number(item.id));
     const candidates = uniqueIds([
       ...deferredIds,
-      ...terms.filter((term) => !currentTermState(term.id)).map((term) => term.id),
+      ...studyTerms.filter((term) => !currentTermState(term.id)).map((term) => term.id),
     ]);
     const selectedDeferred = new Set();
     const usedNew = new Set(sessionNew);
@@ -1850,7 +1856,7 @@
       learning,
       due,
       touched: values.length,
-      untouched: terms.length - values.length,
+      untouched: studyTerms.filter((term) => !currentTermState(term.id)).length,
       streak: calculateStreak(),
     };
   }
@@ -2077,7 +2083,7 @@
               <span class="pill">今日新学 <strong>${state.session.newIds.length}</strong></span>
               <span class="pill">到期复习 <strong>${reviewCount}</strong></span>
               <span class="pill">未来两天复习 <strong>${nextReview}</strong></span>
-              <span class="pill">词库总量 <strong>${terms.length}</strong></span>
+              <span class="pill">词典总量 <strong>${terms.length}</strong></span>
             </div>
           </div>
           <div class="hero-progress">
@@ -3301,16 +3307,33 @@
 
   function getFilteredTerms() {
     const query = ui.library.query.trim().toLowerCase();
-    return terms.filter((term) => {
+    const compact = (value) => String(value).toLowerCase().replace(/[\s_-]+/g, "");
+    const compactQuery = compact(query);
+    const filtered = terms.filter((term) => {
+      if (ui.library.scope === "reference" && !term.dictionaryOnly) return false;
+      if (ui.library.scope === "study" && term.dictionaryOnly) return false;
       if (ui.library.category !== "all" && term.category !== ui.library.category) return false;
       const status = termStatus(term).key;
-      if (ui.library.status !== "all" && status !== ui.library.status) return false;
+      if (ui.library.status === "new") {
+        if (currentTermState(term.id)) return false;
+      } else if (ui.library.status !== "all" && status !== ui.library.status) return false;
       if (!query) return true;
-      return [term.en, term.zh, term.category, term.location, term.usage, term.tip, ...(term.aliases || [])]
+      return compact(term.en).includes(compactQuery) || [term.en, term.zh, term.category, term.location, term.usage, ...(term.aliases || [])]
         .join(" ")
         .toLowerCase()
         .includes(query);
     });
+    if (query) {
+      const rank = (term) => compact(term.en) === compactQuery || term.zh === query ? 0
+        : compact(term.en).startsWith(compactQuery) ? 1 : term.zh.includes(query) ? 2 : 3;
+      filtered.sort((a, b) => rank(a) - rank(b));
+    }
+    return filtered;
+  }
+
+  function epicDictionarySearchUrl(query) {
+    const params = new URLSearchParams({ query, application: "unreal_engine", types: "documentation" });
+    return `https://dev.epicgames.com/community/search?${params}`;
   }
 
   function renderLibrary() {
@@ -3319,10 +3342,16 @@
         <div class="page-intro">
           <div>
             <span class="eyebrow">SEARCH · FILTER · CONNECT</span>
-            <h2>把“看不懂英文”变成<br>可检索的蓝图地图</h2>
-            <p>可搜英文、中文、节点位置和使用场景。每个词条都能继续展开前置知识、相关节点与真实逻辑链。</p>
+            <h2>遇到不认识的 UE5 词汇，<br>先来这里查一查</h2>
+            <p>英文、中文、缩写和用途都能查。参考词条只供查询，不会自动加入每日背诵或考题。</p>
           </div>
         </div>
+        <div class="dictionary-scopes" role="group" aria-label="词典范围">
+          ${[["all", "全部词典", terms.length], ["study", "背诵词库", studyTerms.length], ["reference", "扩展参考", DATA.dictionaryTerms?.length || 0]].map(([scope, label, count]) => `
+            <button class="dictionary-scope ${ui.library.scope === scope ? "is-active" : ""}" type="button" data-dictionary-scope="${scope}" aria-pressed="${ui.library.scope === scope}">${label}<span>${count}</span></button>
+          `).join("")}
+        </div>
+        <p class="dictionary-coverage">${DATA.referenceCategories?.length || 0} 个参考分类 · 含概念、节点、参数、资源和工具 · 中文为学习释义。UE5 各版本及插件会有差异，可继续查询 Epic 官方文档。</p>
         <div class="toolbar library-toolbar">
           <label class="search-field library-search-field">
             <span class="sr-only">搜索词条</span>
@@ -3332,7 +3361,7 @@
             <span class="field-caption">分类筛选</span>
             <select id="library-category">
               <option value="all">全部分类</option>
-              ${DATA.categories.map((category) => `<option value="${escapeHtml(category.name)}" ${ui.library.category === category.name ? "selected" : ""}>${escapeHtml(category.name)} · ${category.count}</option>`).join("")}
+              ${dictionaryCategories.filter((category) => ui.library.scope === "all" || (ui.library.scope === "reference" ? category.name.startsWith("参考 · ") : !category.name.startsWith("参考 · "))).map((category) => `<option value="${escapeHtml(category.name)}" ${ui.library.category === category.name ? "selected" : ""}>${escapeHtml(category.name)} · ${category.count}</option>`).join("")}
             </select>
           </label>
           <label class="select-field library-filter-field">
@@ -3340,12 +3369,14 @@
             <select id="library-status">
               <option value="all" ${ui.library.status === "all" ? "selected" : ""}>全部状态</option>
               <option value="new" ${ui.library.status === "new" ? "selected" : ""}>未学习</option>
+              <option value="reference" ${ui.library.status === "reference" ? "selected" : ""}>参考词条 · 未加入背诵</option>
               <option value="learning" ${ui.library.status === "learning" ? "selected" : ""}>学习中</option>
               <option value="mastered" ${ui.library.status === "mastered" ? "selected" : ""}>长期记忆</option>
             </select>
           </label>
           <span class="result-copy" id="library-result-copy"></span>
         </div>
+        <div class="dictionary-official" id="dictionary-official"></div>
         <div id="library-results"></div>
       </div>
     `;
@@ -3359,13 +3390,19 @@
     const visible = filtered.slice(0, ui.library.limit);
     const copy = document.getElementById("library-result-copy");
     if (copy) copy.textContent = `找到 ${filtered.length} 条 · 当前显示 ${visible.length} 条`;
+    const query = ui.library.query.trim();
+    const official = document.getElementById("dictionary-official");
+    if (official) official.innerHTML = `
+      <div><strong>${query ? "继续查官方资料" : "更多版本与插件词汇"}</strong><span>${query ? `在 Epic 官方文档中搜索「${escapeHtml(query)}」` : "本地词典覆盖主要系统；最新节点、插件专有词可到官方查询。"}</span></div>
+      <a class="button" href="${escapeHtml(epicDictionarySearchUrl(query || "Unreal Engine Blueprint"))}" target="_blank" rel="noopener noreferrer">Epic 官方查询 ↗</a>
+    `;
 
     if (!visible.length) {
       const query = ui.library.query.trim();
       container.innerHTML = `
         <div class="empty-state">
           <h3>本地词库没有匹配词条</h3>
-          <p>可以换用中文用途搜索，或直接到有道词典查询英文。</p>
+          <p>可换用英文节点名、中文含义或清除分类筛选；引擎和插件专有术语可继续查 Epic 官方资料。</p>
           <div class="hero-actions" style="justify-content:center">
             ${query ? `<a class="button button-primary" href="${escapeHtml(youdaoWordUrl(query))}" target="_blank" rel="noopener noreferrer">到有道词典查询 ${escapeHtml(query)}</a>` : ""}
             <button class="button" type="button" data-action="clear-library-search">清除筛选</button>
@@ -3385,7 +3422,7 @@
             <article class="term-card">
               <button class="term-card-body" type="button" data-term-id="${term.id}">
                 <div class="term-card-head">
-                  <span class="term-card-index">BP-${String(term.id).padStart(3, "0")}</span>
+                  <span class="term-card-index">${term.dictionaryOnly ? "UE5 REFERENCE" : `BP-${String(term.id).padStart(3, "0")}`}</span>
                   <span class="tag ${status.key}">${status.label}</span>
                 </div>
                 <h3>${escapeHtml(term.en)}</h3>
@@ -3393,7 +3430,7 @@
                 <p class="term-card-usage">${escapeHtml(term.usage)}</p>
               </button>
               <div class="term-card-foot">
-                <span>${escapeHtml(term.category)} · ${progress ? `下次 ${escapeHtml(formatDueAt(progress))}` : "尚未学习"}</span>
+                <span>${escapeHtml(term.category)} · ${progress ? `下次 ${escapeHtml(formatDueAt(progress))}` : term.dictionaryOnly ? "仅查询 · 可手动加入" : "尚未学习"}</span>
                 <div class="term-card-foot-actions">
                   ${speakButtonMarkup(term.en, true)}
                   <button class="term-add-button" type="button" data-add-today="${term.id}" ${action.disabled ? "disabled" : ""}>${escapeHtml(action.label)}</button>
@@ -4259,7 +4296,7 @@
         <div class="flashcard-meta">
           <span class="tag ${status.key}">${status.label}</span>
           <span class="tag">${escapeHtml(term.category)}</span>
-          <span class="tag">BP-${String(term.id).padStart(3, "0")}</span>
+          <span class="tag">${term.dictionaryOnly ? "UE5 参考词典" : `BP-${String(term.id).padStart(3, "0")}`}</span>
         </div>
         <div class="term-title-row">
           <h2 id="term-dialog-title">${escapeHtml(term.en)}</h2>
@@ -4269,7 +4306,7 @@
       </header>
       <div class="detail-grid">
         <div class="detail-block">
-          <span>节点位置 LOCATION</span>
+          <span>${term.dictionaryOnly ? "所属系统 SYSTEM" : "节点位置 LOCATION"}</span>
           <p><code>${escapeHtml(term.location)}</code></p>
         </div>
         <div class="detail-block">
@@ -4285,6 +4322,7 @@
           <p>${escapeHtml(term.tip)}</p>
         </div>
       </div>
+      ${term.dictionaryOnly ? `<section class="detail-section dictionary-source"><h3>资料与适用范围</h3><p>本站中文释义用于理解词义，不等同于编辑器的官方汉化名称。系统文档用于继续了解背景；词条可能是概念、属性、资源或工具，并非都能作为蓝图节点搜索。此词不会自动进入每日背诵。</p><div class="hero-actions"><a class="button" href="${escapeHtml(term.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(term.sourceLabel)} ↗</a><a class="button" href="${escapeHtml(epicDictionarySearchUrl(term.en))}" target="_blank" rel="noopener noreferrer">官方检索此词 ↗</a></div></section>` : ""}
       ${phraseMarkup(term)}
       ${memoryAidMarkup(term)}
       <section class="detail-section">
@@ -4723,6 +4761,17 @@
       return;
     }
 
+    const dictionaryScopeButton = event.target.closest("[data-dictionary-scope]");
+    if (dictionaryScopeButton) {
+      ui.library.scope = dictionaryScopeButton.dataset.dictionaryScope;
+      ui.library.category = "all";
+      ui.library.status = "all";
+      ui.library.limit = 24;
+      renderLibrary();
+      document.querySelector(`[data-dictionary-scope="${ui.library.scope}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+
     const routeButton = event.target.closest("[data-route]");
     if (routeButton) {
       event.preventDefault();
@@ -4952,7 +5001,7 @@
       updateLibraryResults();
     }
     if (action === "clear-library-search") {
-      ui.library = { query: "", category: "all", status: "all", limit: 24 };
+      ui.library = { query: "", scope: "all", category: "all", status: "all", limit: 24 };
       renderLibrary();
     }
     if (action === "scroll-study") {

@@ -2643,8 +2643,8 @@ Connection|连接
   data.referenceCategories = categories;
   data.dictionaryTotalTerms = data.terms.length + references.length;
   data.dictionaryCoverage = {
-    version: "1.2.11", updated: "2026-11-17", sections: categories.length,
+    version: "1.2.12", updated: "2026-11-17", sections: categories.length,
     note: "覆盖UE5主要系统的参考术语，非所有版本和插件节点的完整清单。中文为本站学习释义；系统资料链接不代表该名称一定是可搜索节点。",
-    officialUrl: root + "BlueprintAPI?application_version=5.6",
+    officialUrl: root + "BlueprintAPI?application_version=5.8",
   };
 })();

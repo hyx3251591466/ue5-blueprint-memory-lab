@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.11";
+  const APP_VERSION = "1.2.12";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -296,7 +296,7 @@
   const scenarioById = new Map(DATA.scenarios.map((scenario) => [scenario.id, scenario]));
   const tutorials = DATA.tutorials || [];
   const groupById = new Map(DATA.conceptGroups.map((group) => [group.id, group]));
-  const wordByEn = new Map((DATA.wordGlossary || []).map((word) => [word.en, word]));
+  const wordByEn = new Map((DATA.wordGlossary || []).map((word) => [String(word.en).toLowerCase(), word]));
   const REVIEW_SCHEDULE = DATA.reviewSchedule;
   const MAX_STEP = REVIEW_SCHEDULE.length - 1;
   const APPEARANCE_PALETTES = {
@@ -1388,7 +1388,7 @@
             const partZh = part.zh || WORD_FALLBACK_GLOSSARY[String(part.en).toLowerCase()] || "基础释义";
             return `
               <span class="phrase-part-group">
-                ${wordByEn.has(part.en)
+                ${wordByEn.has(String(part.en).toLowerCase())
                   ? `<button class="phrase-part" type="button" data-word="${escapeHtml(part.en)}" aria-label="查询 ${escapeHtml(part.en)}：${escapeHtml(partZh)}"><b>${escapeHtml(part.en)}</b><i>${escapeHtml(partZh)}</i></button>`
                   : `<button class="phrase-part phrase-fallback" type="button" data-word-fallback="${escapeHtml(part.en)}" data-word-zh="${escapeHtml(partZh)}" aria-label="查看 ${escapeHtml(part.en)} 的基础翻译：${escapeHtml(partZh)}"><b>${escapeHtml(part.en)}</b><i>${escapeHtml(partZh)}</i></button>`}
                 ${speakButtonMarkup(part.en, true)}
@@ -3343,19 +3343,19 @@
           <div>
             <span class="eyebrow">SEARCH · FILTER · CONNECT</span>
             <h2>遇到不认识的 UE5 词汇，<br>先来这里查一查</h2>
-            <p>英文、中文、缩写和用途都能查。参考词条只供查询，不会自动加入每日背诵或考题。</p>
+            <p>蓝图节点、分类路径和通用术语都能查；只有你手动加入的词条才会进入背诵。</p>
           </div>
         </div>
         <div class="dictionary-scopes" role="group" aria-label="词典范围">
-          ${[["all", "全部词典", terms.length], ["study", "背诵词库", studyTerms.length], ["reference", "扩展参考", DATA.dictionaryTerms?.length || 0]].map(([scope, label, count]) => `
+          ${[["all", "全部词典", terms.length], ["study", "背诵词库", studyTerms.length], ["reference", "UE5 参考词库", DATA.dictionaryTerms?.length || 0]].map(([scope, label, count]) => `
             <button class="dictionary-scope ${ui.library.scope === scope ? "is-active" : ""}" type="button" data-dictionary-scope="${scope}" aria-pressed="${ui.library.scope === scope}">${label}<span>${count}</span></button>
           `).join("")}
         </div>
-        <p class="dictionary-coverage">${DATA.referenceCategories?.length || 0} 个参考分类 · 含概念、节点、参数、资源和工具 · 中文为学习释义。UE5 各版本及插件会有差异，可继续查询 Epic 官方文档。</p>
+        <p class="dictionary-coverage">${DATA.epicBlueprintApiCatalog ? `Epic UE ${escapeHtml(DATA.epicBlueprintApiCatalog.version)} 蓝图 API 目录已收录 ${Number(DATA.epicBlueprintApiCatalog.entryCount || 0).toLocaleString("zh-CN")} 条词条 · <a href="${escapeHtml(DATA.epicBlueprintApiCatalog.sourceUrl)}" target="_blank" rel="noopener noreferrer">查看 Epic 官方目录 ↗</a>` : `${DATA.referenceCategories?.length || 0} 个参考分类`} · 中文为辅助释义；插件、自定义节点和未列入官方目录的内容可能不同。</p>
         <div class="toolbar library-toolbar">
           <label class="search-field library-search-field">
             <span class="sr-only">搜索词条</span>
-            <input id="library-search" type="search" value="${escapeHtml(ui.library.query)}" placeholder="搜索 rotation、碰撞、UI、存档…">
+            <input id="library-search" type="search" value="${escapeHtml(ui.library.query)}" placeholder="搜索 Print String、Event Landed、Set Actor Location…">
           </label>
           <label class="select-field library-filter-field">
             <span class="field-caption">分类筛选</span>
@@ -3422,7 +3422,7 @@
             <article class="term-card">
               <button class="term-card-body" type="button" data-term-id="${term.id}">
                 <div class="term-card-head">
-                  <span class="term-card-index">${term.dictionaryOnly ? "UE5 REFERENCE" : `BP-${String(term.id).padStart(3, "0")}`}</span>
+                  <span class="term-card-index">${term.epicBlueprintApi ? "EPIC BLUEPRINT API" : term.dictionaryOnly ? "UE5 REFERENCE" : `BP-${String(term.id).padStart(3, "0")}`}</span>
                   <span class="tag ${status.key}">${status.label}</span>
                 </div>
                 <h3>${escapeHtml(term.en)}</h3>
@@ -4015,12 +4015,12 @@
   }
 
   function wordLookupMarkup(wordEn, basicZh = "", draggable = false) {
-    const info = wordByEn.get(wordEn);
+    const info = wordByEn.get(String(wordEn).toLowerCase());
     const translation = info?.zh || basicZh;
     if (!translation) return "";
     const examples = terms
       .filter((term) => {
-        const words = term.en.replace(/[()]/g, " ").split(/\s+/);
+        const words = term.en.replace(/[()]/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").split(/\s+/);
         return words.some((word) => word.toLowerCase() === wordEn.toLowerCase());
       })
       .slice(0, 8);
@@ -4141,7 +4141,7 @@
   }
 
   function showWordLookupCard(wordEn, basicZh = "") {
-    if (!wordByEn.has(wordEn) && !basicZh) return false;
+    if (!wordByEn.has(String(wordEn).toLowerCase()) && !basicZh) return false;
     const card = termDialog.open ? inlineWordLookupCard : floatingWordLookupCard;
     if (!card) return false;
     window.clearTimeout(wordLookupCloseTimer);
@@ -4232,11 +4232,11 @@
   }
 
   function renderWordDetail(wordEn) {
-    const info = wordByEn.get(wordEn);
+    const info = wordByEn.get(String(wordEn).toLowerCase());
     if (!info) return;
     const examples = terms
       .filter((term) => {
-        const words = term.en.replace(/[()]/g, " ").split(/\s+/);
+        const words = term.en.replace(/[()]/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").split(/\s+/);
         return words.some((word) => word.toLowerCase() === wordEn.toLowerCase());
       })
       .slice(0, 10);
@@ -4296,7 +4296,7 @@
         <div class="flashcard-meta">
           <span class="tag ${status.key}">${status.label}</span>
           <span class="tag">${escapeHtml(term.category)}</span>
-          <span class="tag">${term.dictionaryOnly ? "UE5 参考词典" : `BP-${String(term.id).padStart(3, "0")}`}</span>
+          <span class="tag">${term.epicBlueprintApi ? "Epic UE 5.8 API" : term.dictionaryOnly ? "UE5 参考词典" : `BP-${String(term.id).padStart(3, "0")}`}</span>
         </div>
         <div class="term-title-row">
           <h2 id="term-dialog-title">${escapeHtml(term.en)}</h2>
@@ -4322,7 +4322,7 @@
           <p>${escapeHtml(term.tip)}</p>
         </div>
       </div>
-      ${term.dictionaryOnly ? `<section class="detail-section dictionary-source"><h3>资料与适用范围</h3><p>本站中文释义用于理解词义，不等同于编辑器的官方汉化名称。系统文档用于继续了解背景；词条可能是概念、属性、资源或工具，并非都能作为蓝图节点搜索。此词不会自动进入每日背诵。</p><div class="hero-actions"><a class="button" href="${escapeHtml(term.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(term.sourceLabel)} ↗</a><a class="button" href="${escapeHtml(epicDictionarySearchUrl(term.en))}" target="_blank" rel="noopener noreferrer">官方检索此词 ↗</a></div></section>` : ""}
+      ${term.dictionaryOnly ? `<section class="detail-section dictionary-source"><h3>资料与适用范围</h3><p>${term.epicBlueprintApi ? `此词条来自 Epic UE 5.8 Blueprint API 目录，路径为「${escapeHtml(term.apiPath || term.location)}」。中文是辅助释义，不是官方汉化。Epic 说明该 API 目录仍在完善，因此插件、自定义节点或未列出的节点可能不包含在内。此词不会自动进入每日背诵。` : "本站中文释义用于理解词义，不等同于编辑器的官方汉化名称。系统文档用于继续了解背景；词条可能是概念、属性、资源或工具，并非都能作为蓝图节点搜索。此词不会自动进入每日背诵。"}</p><div class="hero-actions"><a class="button" href="${escapeHtml(term.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(term.sourceLabel)} ↗</a><a class="button" href="${escapeHtml(epicDictionarySearchUrl(term.en))}" target="_blank" rel="noopener noreferrer">官方检索此词 ↗</a></div></section>` : ""}
       ${phraseMarkup(term)}
       ${memoryAidMarkup(term)}
       <section class="detail-section">

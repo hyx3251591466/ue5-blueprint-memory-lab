@@ -1,2 +1,2 @@
-fde4aae08fa9e014fc6268ac7c935dceedaa94b9da3ffd23b5541a08219974a1  Blueprint-Memory-Lab-v1.2.11-universal.apk
-b864994e7437198e2ff9bc4954c88b1387886e3c03796e8f4b751331913914ae  Blueprint-Memory-Lab-Web-v1.2.11.zip
+4a079223905bed5e863553e25ce615e44befa95577130e71faa8e8da32938ad4  Blueprint-Memory-Lab-v1.2.12-universal.apk
+5e308a8345d0f22aad906c5884bf6b5d78e0190645344d241774ca4c0edad2c8  Blueprint-Memory-Lab-Web-v1.2.12.zip

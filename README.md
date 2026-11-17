@@ -45,11 +45,11 @@
 | --- | --- |
 | ![UE5 全域参考词典](screenshots/github-ue5-dictionary.png) | ![手机参考词典](screenshots/github-ue5-dictionary-mobile.png) |
 
-词典共 **2,567 条**：原有 623 条背诵词库，加上 **1,944 条只供查询的参考词条**。新增内容按 34 个分类覆盖编辑器、蓝图、数据类型、数学、组件、物理、UMG、动画、Control Rig、材质、纹理、Lumen/Nanite、Niagara、AI、GAS、联网、PCG、开放世界、影视、音频、打包、XR 等主要系统。
+词典保留原有 **623 条背诵词**和 **1,944 条参考词**，并加入 Epic UE 5.8 Blueprint API 官方目录中的 **16,837 个去重名称**。这些官方索引词与原词条重合时会合并；页面实时显示最终可查询词数。覆盖 Actor、Math、Collision、Input、Widget、Animation、Audio、Gameplay 等系统及其核心分类。
 
 新增参考词不会自动加入每日词单或考试，只有手动点击“加入今日词单”才参与学习。既有词条 ID 与学习进度保留；中文、英文、缩写、无空格节点名均可检索。
 
-UE5 词汇随引擎版本及插件变化，本地词典不是所有插件和版本的穷尽清单。参考词可能是概念、属性、资源、工具或节点，中文为本站学习释义；每类提供官方系统资料，并提供按当前输入跳转 Epic 官方文档搜索。系统资料不代表其中每个词都是可直接搜索的节点。
+新 API 词条保留 Epic 英文原名、分类路径和官方页面链接，并提供可点击拆词的中文辅助释义；参考词不会自动加入背诵，需手动添加。Epic 自己说明 Blueprint API 目录仍在完善，不能保证列出所有节点；第三方插件和项目自定义节点也不在静态目录范围内。原有通用参考词可能是概念、属性、资源或工具。
 
 ### 手机端
 
@@ -59,13 +59,13 @@ UE5 词汇随引擎版本及插件变化，本地词典不是所有插件和版�
 
 ## 下载
 
-- **Android APK**：[Blueprint-Memory-Lab-v1.2.11-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.11/Blueprint-Memory-Lab-v1.2.11-universal.apk)
-- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.11.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.11/Blueprint-Memory-Lab-Web-v1.2.11.zip)
-- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.11/DOWNLOAD-AND-INSTALL.txt)
+- **Android APK**：[Blueprint-Memory-Lab-v1.2.12-universal.apk](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.12/Blueprint-Memory-Lab-v1.2.12-universal.apk)
+- **网页离线 ZIP**：[Blueprint-Memory-Lab-Web-v1.2.12.zip](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.12/Blueprint-Memory-Lab-Web-v1.2.12.zip)
+- **安装说明**：[DOWNLOAD-AND-INSTALL.txt](https://github.com/hyx3251591466/ue5-blueprint-memory-lab/releases/download/v1.2.12/DOWNLOAD-AND-INSTALL.txt)
 
 Android 版：
 
-- 版本 `1.2.11`，包名 `com.blueprintmemorylab.app`
+- 版本 `1.2.12`，包名 `com.blueprintmemorylab.app`
 - 支持 Android 6.0 及以上
 - 可直接覆盖升级旧版并保留学习进度
 - 使用 v1、v2、v3 签名方案
@@ -73,7 +73,7 @@ Android 版：
 
 ## 功能
 
-- 2,567 条 UE5 词典：623 条背诵词库 + 1,944 条独立参考词条，支持中英文、缩写和节点别名搜索
+- UE5 词典：保留 623 条背诵词与 1,944 条通用参考词，另含 16,837 个 Epic UE 5.8 Blueprint API 去重名称，支持英文、中文、缩写和节点别名搜索
 - 新增 Event Landed、Falling、Movement Mode Changed、Actor Hit、Any Damage、Construct、Focus、动画初始化等 50 个高频事件入口
 - 独立专注背诵页：先完成全部词条基础通览，再集中进入混合选择题
 - 可组合英译中、使用场景与拆词组义题；完整题目选项只使用本轮词条

@@ -37,7 +37,7 @@
   document.documentElement.dataset.runtime = window.AndroidBridge ? "android" : "web";
 
   const STORAGE_KEY = "ue5-blueprint-memory-lab-v1";
-  const APP_VERSION = "1.2.12";
+  const APP_VERSION = "1.2.13";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const WORD_FALLBACK_GLOSSARY = Object.freeze({
     library: "库",
@@ -290,6 +290,9 @@
   });
   const studyTerms = DATA.terms;
   const terms = [...studyTerms, ...(DATA.dictionaryTerms || [])];
+  const normalizeDictionarySearch = (value) => String(value || "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, "");
+  const termSearchIndex = new Map(terms.map((term) => [term.id, [term.en, term.zh, term.category, term.location, term.usage, term.tip, term.apiPath, term.apiClass, term.apiMember,
+    ...(term.aliases || []), ...(term.phrase?.parts || []).flatMap((part) => [part.en, part.zh])].filter(Boolean).map(normalizeDictionarySearch).join(" ")]));
   const dictionaryCategories = [...DATA.categories, ...(DATA.referenceCategories || [])];
   const termById = new Map(terms.map((term) => [term.id, term]));
   const categoryByName = new Map(dictionaryCategories.map((category) => [category.name, category]));
@@ -3306,9 +3309,14 @@
   }
 
   function getFilteredTerms() {
-    const query = ui.library.query.trim().toLowerCase();
-    const compact = (value) => String(value).toLowerCase().replace(/[\s_-]+/g, "");
-    const compactQuery = compact(query);
+    const query = ui.library.query.trim();
+    const compactQuery = normalizeDictionarySearch(query);
+    const tokenSource = query.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+    const queryTokens = tokenSource.toLowerCase().match(/[a-z0-9]+|[\u4e00-\u9fff]+/g) || [];
+    const queryAliases = { bp: ["blueprint"], bpi: ["blueprint interface"], bpm: ["blueprint macro"], bpml: ["blueprint macro library"], bpf: ["blueprint function library"] };
+    const meaningfulTokens = queryTokens.length > 1
+      ? queryTokens.filter((token) => token !== "event" && !(queryTokens.includes("event") && token === "on"))
+      : queryTokens;
     const filtered = terms.filter((term) => {
       if (ui.library.scope === "reference" && !term.dictionaryOnly) return false;
       if (ui.library.scope === "study" && term.dictionaryOnly) return false;
@@ -3318,14 +3326,16 @@
         if (currentTermState(term.id)) return false;
       } else if (ui.library.status !== "all" && status !== ui.library.status) return false;
       if (!query) return true;
-      return compact(term.en).includes(compactQuery) || [term.en, term.zh, term.category, term.location, term.usage, ...(term.aliases || [])]
-        .join(" ")
-        .toLowerCase()
-        .includes(query);
+      const indexedText = termSearchIndex.get(term.id) || "";
+      if (compactQuery && indexedText.includes(compactQuery)) return true;
+      return meaningfulTokens.length > 0 && meaningfulTokens.every((token) => {
+        const variants = [normalizeDictionarySearch(token), ...(queryAliases[token] || []).map(normalizeDictionarySearch)];
+        return variants.some((variant) => variant && indexedText.includes(variant));
+      });
     });
     if (query) {
-      const rank = (term) => compact(term.en) === compactQuery || term.zh === query ? 0
-        : compact(term.en).startsWith(compactQuery) ? 1 : term.zh.includes(query) ? 2 : 3;
+      const rank = (term) => normalizeDictionarySearch(term.en) === compactQuery || normalizeDictionarySearch(term.zh) === compactQuery ? 0
+        : normalizeDictionarySearch(term.en).startsWith(compactQuery) ? 1 : normalizeDictionarySearch(term.zh).includes(compactQuery) ? 2 : 3;
       filtered.sort((a, b) => rank(a) - rank(b));
     }
     return filtered;
@@ -3351,7 +3361,7 @@
             <button class="dictionary-scope ${ui.library.scope === scope ? "is-active" : ""}" type="button" data-dictionary-scope="${scope}" aria-pressed="${ui.library.scope === scope}">${label}<span>${count}</span></button>
           `).join("")}
         </div>
-        <p class="dictionary-coverage">${DATA.epicBlueprintApiCatalog ? `Epic UE ${escapeHtml(DATA.epicBlueprintApiCatalog.version)} 蓝图 API 目录已收录 ${Number(DATA.epicBlueprintApiCatalog.entryCount || 0).toLocaleString("zh-CN")} 条词条 · <a href="${escapeHtml(DATA.epicBlueprintApiCatalog.sourceUrl)}" target="_blank" rel="noopener noreferrer">查看 Epic 官方目录 ↗</a>` : `${DATA.referenceCategories?.length || 0} 个参考分类`} · 中文为辅助释义；插件、自定义节点和未列入官方目录的内容可能不同。</p>
+        <p class="dictionary-coverage">${DATA.epicBlueprintApiCatalog ? `Epic UE ${escapeHtml(DATA.epicBlueprintApiCatalog.version)} 蓝图 API 目录收录 ${Number(DATA.epicBlueprintApiCatalog.entryCount || 0).toLocaleString("zh-CN")} 个名称；另从 ${Number(DATA.epicBlueprintClassApiCatalog?.fetchedClasses || 0)} 个常用类页面补充 ${Number(DATA.epicBlueprintClassApiCatalog?.addedReferenceCount || 0).toLocaleString("zh-CN")} 条不重复接口，参考词库共 ${Number(DATA.dictionaryTerms?.length || 0).toLocaleString("zh-CN")} 条。<a href="${escapeHtml(DATA.epicBlueprintApiCatalog.sourceUrl)}" target="_blank" rel="noopener noreferrer">Epic 蓝图 API ↗</a> · <a href="${escapeHtml(DATA.epicBlueprintClassApiCatalog?.sourceUrl || "https://dev.epicgames.com/documentation/en-us/unreal-engine/API?application_version=5.8")}" target="_blank" rel="noopener noreferrer">Epic 类 API ↗</a> · 官方目录不保证列全，插件与项目自定义节点会因环境而异。` : `${DATA.referenceCategories?.length || 0} 个参考分类`} · 中文为辅助释义。</p>
         <div class="toolbar library-toolbar">
           <label class="search-field library-search-field">
             <span class="sr-only">搜索词条</span>
@@ -4296,7 +4306,7 @@
         <div class="flashcard-meta">
           <span class="tag ${status.key}">${status.label}</span>
           <span class="tag">${escapeHtml(term.category)}</span>
-          <span class="tag">${term.epicBlueprintApi ? "Epic UE 5.8 API" : term.dictionaryOnly ? "UE5 参考词典" : `BP-${String(term.id).padStart(3, "0")}`}</span>
+          <span class="tag">${term.blueprintClassApi ? "Epic UE 5.8 类 API" : term.epicBlueprintApi ? "Epic UE 5.8 蓝图 API" : term.dictionaryOnly ? "UE5 参考词典" : `BP-${String(term.id).padStart(3, "0")}`}</span>
         </div>
         <div class="term-title-row">
           <h2 id="term-dialog-title">${escapeHtml(term.en)}</h2>
@@ -4318,11 +4328,11 @@
           <p>${escapeHtml(term.usage)}</p>
         </div>
         <div class="detail-block wide">
-          <span>避坑提示 WATCH OUT</span>
+          <span>${term.blueprintClassApi ? "Epic 原文摘要 SOURCE SUMMARY" : "避坑提示 WATCH OUT"}</span>
           <p>${escapeHtml(term.tip)}</p>
         </div>
       </div>
-      ${term.dictionaryOnly ? `<section class="detail-section dictionary-source"><h3>资料与适用范围</h3><p>${term.epicBlueprintApi ? `此词条来自 Epic UE 5.8 Blueprint API 目录，路径为「${escapeHtml(term.apiPath || term.location)}」。中文是辅助释义，不是官方汉化。Epic 说明该 API 目录仍在完善，因此插件、自定义节点或未列出的节点可能不包含在内。此词不会自动进入每日背诵。` : "本站中文释义用于理解词义，不等同于编辑器的官方汉化名称。系统文档用于继续了解背景；词条可能是概念、属性、资源或工具，并非都能作为蓝图节点搜索。此词不会自动进入每日背诵。"}</p><div class="hero-actions"><a class="button" href="${escapeHtml(term.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(term.sourceLabel)} ↗</a><a class="button" href="${escapeHtml(epicDictionarySearchUrl(term.en))}" target="_blank" rel="noopener noreferrer">官方检索此词 ↗</a></div></section>` : ""}
+      ${term.dictionaryOnly ? `<section class="detail-section dictionary-source"><h3>资料与适用范围</h3><p>${term.blueprintClassApi ? `此词条根据 Epic UE 5.8「${escapeHtml(term.apiClass)}」类 API 页面整理，属于蓝图可调用成员、可覆写事件或可绑定委托；具体能否在当前蓝图中使用，取决于目标类型和启用插件。中文为拆词辅助释义。此词不会自动进入每日背诵。` : term.epicBlueprintApi ? `此词条来自 Epic UE 5.8 Blueprint API 目录，路径为「${escapeHtml(term.apiPath || term.location)}」。中文是辅助释义，不是官方汉化。Epic 说明该 API 目录仍在完善，因此插件、自定义节点或未列出的节点可能不包含在内。此词不会自动进入每日背诵。` : "本站中文释义用于理解词义，不等同于编辑器的官方汉化名称。系统文档用于继续了解背景；词条可能是概念、属性、资源或工具，并非都能作为蓝图节点搜索。此词不会自动进入每日背诵。"}</p><div class="hero-actions"><a class="button" href="${escapeHtml(term.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(term.sourceLabel)} ↗</a><a class="button" href="${escapeHtml(epicDictionarySearchUrl(term.en))}" target="_blank" rel="noopener noreferrer">官方检索此词 ↗</a></div></section>` : ""}
       ${phraseMarkup(term)}
       ${memoryAidMarkup(term)}
       <section class="detail-section">

@@ -102,7 +102,7 @@
   };
   data.dictionaryCoverage = {
     ...(data.dictionaryCoverage || {}),
-    version: '1.2.12',
+    version: '1.2.13',
     updated: catalog.updated,
     officialUrl: catalog.rootUrl,
     note: '含 Epic UE 5.8 Blueprint API 目录快照与通用 UE5 参考词。Epic 官方 API 目录声明仍未保证穷尽全部节点；第三方插件和项目自定义节点另有差异。API 参考词不会自动加入背诵清单。',

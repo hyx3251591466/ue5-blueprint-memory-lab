@@ -1,24 +1,23 @@
-Blueprint Memory Lab v1.2.12
+Blueprint Memory Lab v1.2.13
 
 Android 安装
-1. 下载 Blueprint-Memory-Lab-v1.2.12-universal.apk。
+1. 下载 Blueprint-Memory-Lab-v1.2.13-universal.apk。
 2. 点击 APK 安装；若系统提示，请允许当前浏览器或文件管理器“安装未知应用”。
 3. 包名为 com.blueprintmemorylab.app，可覆盖升级旧版并保留学习记录。
 4. 支持 Android 6.0 及以上。
 
 网页离线版
-1. 下载 Blueprint-Memory-Lab-Web-v1.2.12.zip。
+1. 下载 Blueprint-Memory-Lab-Web-v1.2.13.zip。
 2. 完整解压压缩包。
 3. 保持所有文件在同一文件夹，双击 index.html。
 4. 推荐使用最新版 Edge、Chrome 或 Android WebView。
 
 本次词典更新
-Epic UE 5.8 Blueprint API 官方目录包含 16,837 个去重名称索引，另保留原有 623 条背诵词和 1,944 条参考词。
-官方 API 参考词只供查询，不会自动加入每日背诵；需要时可手动加入今日词单。
-中文为理解用辅助释义。Epic 说明官方目录仍在完善，插件、自定义节点及未列出的内容可能不在其中。
+原有 623 条背诵词保留；参考词库共 18,928 条。包含 Epic UE 5.8 Blueprint API 目录名称，以及 94 个常用类页面中的蓝图可见接口。
+新增参考词只供查询，不会自动加入每日背诵。Epic 说明官方 API 目录不保证列出所有节点；插件、自定义节点及版本差异可能导致内容不同。
 
 文件校验
-SHA-256 校验值见 SHA256SUMS.txt。
+SHA-256 校验值见 SHA256SUMS-v1.2.13.txt。
 
 说明
 当前 APK 使用项目证书签名，适合直接侧载，不适合提交 Google Play。
